@@ -65,7 +65,7 @@ wrangler pages deploy dist
 Stored in: `/home/bob/clawd/.env`
 
 ```bash
-CLOUDFLARE_API_TOKEN=M6qB8H318QLXR2yvrzxPQws9DexdiqQ4xHizegsA
+CLOUDFLARE_API_TOKEN=[REDACTED]
 CLOUDFLARE_ACCOUNT_ID=07bab86edf479ab554292046404e4db4
 ```
 
