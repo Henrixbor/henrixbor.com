@@ -37,9 +37,71 @@ const tagline = "Developer · Builder · AI Enthusiast";
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            cursor: none;
         }
 
-        /* Subtle gradient orb */
+        /* Cursor glow */
+        .cursor-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, rgba(99,102,241,0.06) 40%, transparent 70%);
+            pointer-events: none;
+            z-index: 100;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s;
+            opacity: 0;
+        }
+
+        body:hover .cursor-glow { opacity: 1; }
+
+        /* Cursor dot */
+        .cursor-dot {
+            position: fixed;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(167, 139, 250, 0.9);
+            pointer-events: none;
+            z-index: 101;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        body:hover .cursor-dot { opacity: 1; }
+
+        /* Trail particles */
+        .trail-particle {
+            position: fixed;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: rgba(167, 139, 250, 0.6);
+            pointer-events: none;
+            z-index: 99;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Noise overlay */
+        .noise {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.035;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            animation: noiseShift 0.15s steps(2) infinite;
+        }
+
+        @keyframes noiseShift {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(-1.5%, -1.5%); }
+            100% { transform: translate(1.5%, 1.5%); }
+        }
+
+        /* Gradient orb - parallax layer */
         .orb {
             position: fixed;
             width: 600px;
@@ -53,6 +115,7 @@ const tagline = "Developer · Builder · AI Enthusiast";
             left: 50%;
             transform: translate(-50%, -50%);
             animation: rotate 20s linear infinite;
+            will-change: transform;
         }
 
         @keyframes rotate {
@@ -60,25 +123,29 @@ const tagline = "Developer · Builder · AI Enthusiast";
             to { transform: translate(-50%, -50%) rotate(360deg); }
         }
 
-        /* Grid pattern */
+        /* Grid pattern - parallax layer */
         .grid-bg {
             position: fixed;
-            inset: 0;
+            inset: -10%;
+            width: 120%;
+            height: 120%;
             background-image:
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
             background-size: 64px 64px;
             mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
             -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
             pointer-events: none;
+            will-change: transform;
         }
 
         .content {
             position: relative;
-            z-index: 1;
+            z-index: 10;
             text-align: center;
             padding: 2rem;
             max-width: 480px;
+            will-change: transform;
         }
 
         .intro {
@@ -91,6 +158,40 @@ const tagline = "Developer · Builder · AI Enthusiast";
             letter-spacing: -0.04em;
             line-height: 1.1;
             color: var(--text);
+            position: relative;
+            display: inline-block;
+            cursor: none;
+        }
+
+        /* Text shimmer on hover */
+        .name::after {
+            content: '';
+            position: absolute;
+            inset: -4px -8px;
+            background: linear-gradient(
+                105deg,
+                transparent 20%,
+                rgba(167, 139, 250, 0.15) 45%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(167, 139, 250, 0.15) 55%,
+                transparent 80%
+            );
+            background-size: 250% 100%;
+            background-position: 200% center;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .name:hover::after {
+            opacity: 1;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
         }
 
         .role {
@@ -116,6 +217,7 @@ const tagline = "Developer · Builder · AI Enthusiast";
             animation: enter 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
         }
 
+        /* Magnetic links */
         .links a {
             color: var(--text-tertiary);
             text-decoration: none;
@@ -124,7 +226,9 @@ const tagline = "Developer · Builder · AI Enthusiast";
             letter-spacing: 0.01em;
             padding: 0.5rem 0.75rem;
             border-radius: 6px;
-            transition: color 0.3s, background 0.3s;
+            transition: color 0.3s, background 0.3s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-block;
+            cursor: none;
         }
 
         .links a:hover {
@@ -155,25 +259,141 @@ const tagline = "Developer · Builder · AI Enthusiast";
         @media (max-width: 480px) {
             .name { font-size: 1.6rem; }
             .content { padding: 1.5rem; }
+            /* Disable custom cursor on touch devices */
+            body { cursor: auto; }
+            .cursor-glow, .cursor-dot { display: none; }
+            .links a, .name { cursor: auto; }
+        }
+
+        @media (hover: none) {
+            body { cursor: auto; }
+            .cursor-glow, .cursor-dot { display: none; }
+            .links a, .name { cursor: auto; }
         }
     </style>
 </head>
 <body>
-    <div class="orb"></div>
-    <div class="grid-bg"></div>
-    <div class="content">
+    <div class="cursor-glow" id="cursorGlow"></div>
+    <div class="cursor-dot" id="cursorDot"></div>
+    <div class="noise"></div>
+    <div class="orb" id="orb"></div>
+    <div class="grid-bg" id="grid"></div>
+    <div class="content" id="content">
         <div class="intro">
             <h1 class="name">{title}</h1>
             <p class="role">{tagline}</p>
         </div>
         <div class="divider"></div>
         <nav class="links">
-            <a href="https://github.com/Henrixbor" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://github.com/Henrixbor" target="_blank" rel="noopener" data-magnetic>GitHub</a>
             <span class="dot">&#9679;</span>
-            <a href="https://linkedin.com/in/kamarainen" target="_blank" rel="noopener">LinkedIn</a>
+            <a href="https://linkedin.com/in/kamarainen" target="_blank" rel="noopener" data-magnetic>LinkedIn</a>
             <span class="dot">&#9679;</span>
-            <a href="mailto:henkka.kamarainen@gmail.com">Email</a>
+            <a href="mailto:henkka.kamarainen@gmail.com" data-magnetic>Email</a>
         </nav>
     </div>
+
+    <script>
+        const glow = document.getElementById('cursorGlow');
+        const dot = document.getElementById('cursorDot');
+        const orb = document.getElementById('orb');
+        const grid = document.getElementById('grid');
+        const content = document.getElementById('content');
+
+        let mouseX = 0, mouseY = 0;
+        let glowX = 0, glowY = 0;
+        let dotX = 0, dotY = 0;
+
+        // Trail particles
+        const particles = [];
+        const TRAIL_LENGTH = 18;
+        let lastTrailTime = 0;
+
+        function createParticle(x, y) {
+            const el = document.createElement('div');
+            el.className = 'trail-particle';
+            document.body.appendChild(el);
+            return { el, x, y, life: 1, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5 };
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            // Spawn trail particles with throttle
+            const now = performance.now();
+            if (now - lastTrailTime > 30) {
+                lastTrailTime = now;
+                if (particles.length < TRAIL_LENGTH) {
+                    particles.push(createParticle(mouseX, mouseY));
+                }
+            }
+        });
+
+        // Magnetic links
+        document.querySelectorAll('[data-magnetic]').forEach(link => {
+            link.addEventListener('mousemove', (e) => {
+                const rect = link.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dx = (e.clientX - cx) * 0.3;
+                const dy = (e.clientY - cy) * 0.3;
+                link.style.transform = `translate(${dx}px, ${dy}px)`;
+            });
+
+            link.addEventListener('mouseleave', () => {
+                link.style.transform = 'translate(0, 0)';
+            });
+        });
+
+        // Animation loop
+        function animate() {
+            // Smooth cursor glow (slow follow)
+            glowX += (mouseX - glowX) * 0.08;
+            glowY += (mouseY - glowY) * 0.08;
+            glow.style.left = glowX + 'px';
+            glow.style.top = glowY + 'px';
+
+            // Cursor dot (fast follow)
+            dotX += (mouseX - dotX) * 0.25;
+            dotY += (mouseY - dotY) * 0.25;
+            dot.style.left = dotX + 'px';
+            dot.style.top = dotY + 'px';
+
+            // Parallax depth
+            const cx = (mouseX / window.innerWidth - 0.5) * 2;
+            const cy = (mouseY / window.innerHeight - 0.5) * 2;
+
+            // Orb moves slowly (deep layer)
+            orb.style.transform = `translate(calc(-50% + ${cx * 15}px), calc(-50% + ${cy * 15}px)) rotate(${performance.now() * 0.018}deg)`;
+
+            // Grid moves medium (mid layer)
+            grid.style.transform = `translate(${cx * -8}px, ${cy * -8}px)`;
+
+            // Content moves slightly opposite (foreground)
+            content.style.transform = `translate(${cx * 3}px, ${cy * 3}px)`;
+
+            // Update trail particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.life -= 0.025;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.el.style.left = p.x + 'px';
+                p.el.style.top = p.y + 'px';
+                p.el.style.opacity = p.life;
+                p.el.style.transform = `translate(-50%, -50%) scale(${p.life})`;
+
+                if (p.life <= 0) {
+                    p.el.remove();
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
 </body>
 </html>
