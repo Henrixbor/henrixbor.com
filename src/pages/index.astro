@@ -240,7 +240,7 @@ const tagline = "Developer · Builder · AI Enthusiast";
             </div>
             <div class="intro">
                 <h1 class="name" data-scramble data-text={title}>{title}</h1>
-                <p class="role">{tagline}</p>
+                <p class="role" data-scramble data-text={tagline}>{tagline}</p>
             </div>
             <div class="divider"></div>
             <nav class="links">
@@ -373,7 +373,7 @@ const tagline = "Developer · Builder · AI Enthusiast";
         const BASE_R = 113, BASE_G = 113, BASE_B = 122;
         const HOVER_R = 167, HOVER_G = 139, HOVER_B = 250;
 
-        const GLOW_DECAY = 0.985;  // how slowly the purple glow fades (closer to 1 = longer trail)
+        const GLOW_DECAY = 0.99;  // ~2 second fade trail
 
         let dots = [];
         let w, h;
