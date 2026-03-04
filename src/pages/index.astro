@@ -263,10 +263,11 @@ const tagline = "Developer · Builder · AI Enthusiast";
         x: -1000, y: -1000,
         vx: 0, vy: 0,
         active: false,
-        gravity: 1.8,       // how strongly tilt maps to acceleration
+        gravity: 2.0,
         friction: 0.985,
         bounce: 0.5,
-        radius: 80,         // visual influence radius (same as pointer)
+        refBeta: null,      // neutral holding angle (captured on init)
+        refGamma: null,
     };
 
     function updateGyroBall() {
@@ -286,7 +287,6 @@ const tagline = "Developer · Builder · AI Enthusiast";
         if (gyroBall.y < 0) { gyroBall.y = 0; gyroBall.vy *= -gyroBall.bounce; }
         if (gyroBall.y > h) { gyroBall.y = h; gyroBall.vy *= -gyroBall.bounce; }
 
-        // Update shared pointer so dot grid + scramble react to ball
         pointer.x = gyroBall.x;
         pointer.y = gyroBall.y;
     }
@@ -294,23 +294,35 @@ const tagline = "Developer · Builder · AI Enthusiast";
     function handleOrientation(e) {
         if (!gyroBall.active) return;
 
-        // beta = front/back tilt (-180..180), gamma = left/right (-90..90)
-        let beta = e.beta || 0;
-        let gamma = e.gamma || 0;
+        const beta = e.beta || 0;
+        const gamma = e.gamma || 0;
 
-        // Clamp
-        beta = Math.max(-45, Math.min(45, beta));
-        gamma = Math.max(-45, Math.min(45, gamma));
+        // Capture the user's natural holding angle as reference
+        if (gyroBall.refBeta === null) {
+            gyroBall.refBeta = beta;
+            gyroBall.refGamma = gamma;
+            return;
+        }
 
-        // Map tilt to acceleration (gamma = X, beta = Y)
-        gyroBall.vx += (gamma / 45) * gyroBall.gravity;
-        gyroBall.vy += (beta / 45) * gyroBall.gravity;
+        // Delta from neutral position — tilt relative to how you're holding it
+        let dBeta = beta - gyroBall.refBeta;
+        let dGamma = gamma - gyroBall.refGamma;
+
+        // Clamp deltas
+        const MAX_TILT = 30;
+        dBeta = Math.max(-MAX_TILT, Math.min(MAX_TILT, dBeta));
+        dGamma = Math.max(-MAX_TILT, Math.min(MAX_TILT, dGamma));
+
+        // Map tilt delta to acceleration (gamma = X, beta = Y)
+        gyroBall.vx += (dGamma / MAX_TILT) * gyroBall.gravity;
+        gyroBall.vy += (dBeta / MAX_TILT) * gyroBall.gravity;
     }
 
     async function initGyro() {
-        // Start ball at center of screen
         gyroBall.x = window.innerWidth / 2;
         gyroBall.y = window.innerHeight / 2;
+        gyroBall.refBeta = null;  // will capture on first orientation event
+        gyroBall.refGamma = null;
         gyroBall.active = true;
 
         window.addEventListener('deviceorientation', handleOrientation);
@@ -361,7 +373,7 @@ const tagline = "Developer · Builder · AI Enthusiast";
         const BASE_R = 113, BASE_G = 113, BASE_B = 122;
         const HOVER_R = 167, HOVER_G = 139, HOVER_B = 250;
 
-        const GLOW_DECAY = 0.965;  // how slowly the purple glow fades (closer to 1 = longer trail)
+        const GLOW_DECAY = 0.985;  // how slowly the purple glow fades (closer to 1 = longer trail)
 
         let dots = [];
         let w, h;
