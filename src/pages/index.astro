@@ -192,14 +192,17 @@ const tagline = "Developer · Builder · AI Enthusiast";
         const ctx = canvas.getContext('2d');
 
         const DOT_SPACING = 28;
-        const DOT_RADIUS = 1;
-        const INFLUENCE_RADIUS = 120;
-        const MAX_DISPLACEMENT = 18;
+        const DOT_RADIUS = 1.2;
+        const INFLUENCE_RADIUS = 150;
+        const MAX_DISPLACEMENT = 20;
         const SPRING = 0.06;
-        const DAMPING = 0.85;
-        const BASE_ALPHA = 0.12;
-        const HOVER_ALPHA = 0.4;
-        const DOT_COLOR = '167, 139, 250'; // purple-ish
+        const DAMPING = 0.82;
+        const BASE_ALPHA = 0.2;
+        const HOVER_ALPHA = 0.9;
+
+        // Color: dots shift from muted zinc to vivid purple near cursor
+        const BASE_R = 113, BASE_G = 113, BASE_B = 122;   // zinc-500
+        const HOVER_R = 167, HOVER_G = 139, HOVER_B = 250; // purple
 
         let dots = [];
         let mouse = { x: -1000, y: -1000 };
@@ -255,16 +258,25 @@ const tagline = "Developer · Builder · AI Enthusiast";
                 d.x += d.vx;
                 d.y += d.vy;
 
-                // Alpha based on displacement
-                const displacement = Math.sqrt((d.x - d.ox) ** 2 + (d.y - d.oy) ** 2);
-                const alpha = BASE_ALPHA + (HOVER_ALPHA - BASE_ALPHA) * Math.min(displacement / MAX_DISPLACEMENT, 1);
+                // Proximity factor: 0 = far, 1 = right on cursor
+                const proximity = dist < INFLUENCE_RADIUS
+                    ? Math.pow(1 - dist / INFLUENCE_RADIUS, 1.5)
+                    : 0;
 
-                // Size scales slightly with displacement
-                const radius = DOT_RADIUS + displacement * 0.04;
+                // Interpolate color from zinc to purple based on proximity
+                const r = Math.round(BASE_R + (HOVER_R - BASE_R) * proximity);
+                const g = Math.round(BASE_G + (HOVER_G - BASE_G) * proximity);
+                const b = Math.round(BASE_B + (HOVER_B - BASE_B) * proximity);
+
+                // Alpha: brighter near cursor
+                const alpha = BASE_ALPHA + (HOVER_ALPHA - BASE_ALPHA) * proximity;
+
+                // Size grows near cursor
+                const radius = DOT_RADIUS + proximity * 1.2;
 
                 ctx.beginPath();
                 ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(${DOT_COLOR}, ${alpha})`;
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
                 ctx.fill();
             }
 
