@@ -181,6 +181,48 @@ const tagline = "Developer · Builder · AI Enthusiast";
             }
         }
 
+        /* Mobile: avatar always slightly revealed */
+        @media (hover: none) {
+            .avatar {
+                filter: grayscale(0.5) contrast(1.05) brightness(0.95);
+                opacity: 0.85;
+                border-color: rgba(167, 139, 250, 0.3);
+            }
+        }
+
+        /* Gyro permission prompt */
+        .gyro-prompt {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(167, 139, 250, 0.1);
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            color: var(--text-secondary);
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 0.75rem;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            padding: 0.6rem 1.2rem;
+            border-radius: 100px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            animation: enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.8s both;
+            transition: opacity 0.4s, transform 0.4s;
+        }
+
+        .gyro-prompt:active {
+            transform: translateX(-50%) scale(0.96);
+        }
+
+        .gyro-prompt.hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(8px);
+            pointer-events: none;
+        }
+
         @media (max-width: 480px) {
             .name { font-size: 1.6rem; }
             .inner { padding: 1.5rem; }
@@ -190,6 +232,7 @@ const tagline = "Developer · Builder · AI Enthusiast";
 <body>
     <canvas id="dotGrid"></canvas>
     <div class="noise"></div>
+    <button class="gyro-prompt" id="gyroPrompt" style="display:none;">Tap to enable tilt interaction</button>
     <div class="content">
         <div class="inner">
             <div class="avatar-wrapper">
@@ -211,6 +254,96 @@ const tagline = "Developer · Builder · AI Enthusiast";
     </div>
 
     <script>
+    // ─── Shared pointer position (used by dot grid + scramble proximity) ──
+    const pointer = { x: -1000, y: -1000 };
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    // ─── Gyro Ball (mobile) ─────────────────────────────────────
+    const gyroBall = {
+        x: -1000, y: -1000,
+        vx: 0, vy: 0,
+        active: false,
+        gravity: 1.8,       // how strongly tilt maps to acceleration
+        friction: 0.985,
+        bounce: 0.5,
+        radius: 80,         // visual influence radius (same as pointer)
+    };
+
+    function updateGyroBall() {
+        if (!gyroBall.active) return;
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        gyroBall.vx *= gyroBall.friction;
+        gyroBall.vy *= gyroBall.friction;
+        gyroBall.x += gyroBall.vx;
+        gyroBall.y += gyroBall.vy;
+
+        // Bounce off walls
+        if (gyroBall.x < 0) { gyroBall.x = 0; gyroBall.vx *= -gyroBall.bounce; }
+        if (gyroBall.x > w) { gyroBall.x = w; gyroBall.vx *= -gyroBall.bounce; }
+        if (gyroBall.y < 0) { gyroBall.y = 0; gyroBall.vy *= -gyroBall.bounce; }
+        if (gyroBall.y > h) { gyroBall.y = h; gyroBall.vy *= -gyroBall.bounce; }
+
+        // Update shared pointer so dot grid + scramble react to ball
+        pointer.x = gyroBall.x;
+        pointer.y = gyroBall.y;
+    }
+
+    function handleOrientation(e) {
+        if (!gyroBall.active) return;
+
+        // beta = front/back tilt (-180..180), gamma = left/right (-90..90)
+        let beta = e.beta || 0;
+        let gamma = e.gamma || 0;
+
+        // Clamp
+        beta = Math.max(-45, Math.min(45, beta));
+        gamma = Math.max(-45, Math.min(45, gamma));
+
+        // Map tilt to acceleration (gamma = X, beta = Y)
+        gyroBall.vx += (gamma / 45) * gyroBall.gravity;
+        gyroBall.vy += (beta / 45) * gyroBall.gravity;
+    }
+
+    async function initGyro() {
+        // Start ball at center of screen
+        gyroBall.x = window.innerWidth / 2;
+        gyroBall.y = window.innerHeight / 2;
+        gyroBall.active = true;
+
+        window.addEventListener('deviceorientation', handleOrientation);
+    }
+
+    // Show gyro prompt on touch devices
+    if (isTouchDevice) {
+        const prompt = document.getElementById('gyroPrompt');
+        const needsPermission = typeof DeviceOrientationEvent !== 'undefined'
+            && typeof DeviceOrientationEvent.requestPermission === 'function';
+
+        // Only show prompt if gyro might be available
+        if (typeof DeviceOrientationEvent !== 'undefined') {
+            prompt.style.display = '';
+
+            prompt.addEventListener('click', async () => {
+                if (needsPermission) {
+                    try {
+                        const result = await DeviceOrientationEvent.requestPermission();
+                        if (result === 'granted') {
+                            await initGyro();
+                        }
+                    } catch (err) {
+                        // Permission denied or unavailable
+                    }
+                } else {
+                    await initGyro();
+                }
+                prompt.classList.add('hidden');
+            });
+        }
+    }
+
     // ─── Interactive Dot Grid ───────────────────────────────────
     (function() {
         const canvas = document.getElementById('dotGrid');
@@ -225,12 +358,12 @@ const tagline = "Developer · Builder · AI Enthusiast";
         const BASE_ALPHA = 0.2;
         const HOVER_ALPHA = 0.9;
 
-        // Color: dots shift from muted zinc to vivid purple near cursor
-        const BASE_R = 113, BASE_G = 113, BASE_B = 122;   // zinc-500
-        const HOVER_R = 167, HOVER_G = 139, HOVER_B = 250; // purple
+        const BASE_R = 113, BASE_G = 113, BASE_B = 122;
+        const HOVER_R = 167, HOVER_G = 139, HOVER_B = 250;
+
+        const GLOW_DECAY = 0.965;  // how slowly the purple glow fades (closer to 1 = longer trail)
 
         let dots = [];
-        let mouse = { x: -1000, y: -1000 };
         let w, h;
 
         function init() {
@@ -252,23 +385,27 @@ const tagline = "Developer · Builder · AI Enthusiast";
                         y: offsetY + r * DOT_SPACING,
                         vx: 0,
                         vy: 0,
+                        glow: 0,  // persistent glow intensity (0-1)
                     });
                 }
             }
         }
 
         function animate() {
+            // Update gyro ball physics each frame
+            updateGyroBall();
+
             ctx.clearRect(0, 0, w, h);
 
             for (let i = 0; i < dots.length; i++) {
                 const d = dots[i];
-                const dx = mouse.x - d.ox;
-                const dy = mouse.y - d.oy;
+                const dx = pointer.x - d.ox;
+                const dy = pointer.y - d.oy;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist < INFLUENCE_RADIUS) {
                     const force = (1 - dist / INFLUENCE_RADIUS);
-                    const forceSq = force * force; // quadratic falloff for smoother feel
+                    const forceSq = force * force;
                     const angle = Math.atan2(dy, dx);
                     const push = forceSq * MAX_DISPLACEMENT;
                     d.vx += (-Math.cos(angle) * push - (d.x - d.ox)) * SPRING;
@@ -283,20 +420,25 @@ const tagline = "Developer · Builder · AI Enthusiast";
                 d.x += d.vx;
                 d.y += d.vy;
 
-                // Proximity factor: 0 = far, 1 = right on cursor
-                const proximity = dist < INFLUENCE_RADIUS
+                const liveProximity = dist < INFLUENCE_RADIUS
                     ? Math.pow(1 - dist / INFLUENCE_RADIUS, 1.5)
                     : 0;
 
-                // Interpolate color from zinc to purple based on proximity
+                // Update persistent glow: ramp up instantly, decay slowly
+                if (liveProximity > d.glow) {
+                    d.glow = liveProximity;
+                } else {
+                    d.glow *= GLOW_DECAY;
+                    if (d.glow < 0.005) d.glow = 0;
+                }
+
+                // Use whichever is stronger: live proximity or lingering glow
+                const proximity = Math.max(liveProximity, d.glow);
+
                 const r = Math.round(BASE_R + (HOVER_R - BASE_R) * proximity);
                 const g = Math.round(BASE_G + (HOVER_G - BASE_G) * proximity);
                 const b = Math.round(BASE_B + (HOVER_B - BASE_B) * proximity);
-
-                // Alpha: brighter near cursor
                 const alpha = BASE_ALPHA + (HOVER_ALPHA - BASE_ALPHA) * proximity;
-
-                // Size grows near cursor
                 const radius = DOT_RADIUS + proximity * 1.2;
 
                 ctx.beginPath();
@@ -308,14 +450,30 @@ const tagline = "Developer · Builder · AI Enthusiast";
             requestAnimationFrame(animate);
         }
 
+        // Desktop: mouse events
         window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
+            pointer.x = e.clientX;
+            pointer.y = e.clientY;
         });
 
         window.addEventListener('mouseleave', () => {
-            mouse.x = -1000;
-            mouse.y = -1000;
+            pointer.x = -1000;
+            pointer.y = -1000;
+        });
+
+        // Mobile: touch fallback (works alongside or without gyro)
+        window.addEventListener('touchmove', (e) => {
+            if (!gyroBall.active) {
+                pointer.x = e.touches[0].clientX;
+                pointer.y = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            if (!gyroBall.active) {
+                pointer.x = -1000;
+                pointer.y = -1000;
+            }
         });
 
         window.addEventListener('resize', init);
@@ -393,20 +551,55 @@ const tagline = "Developer · Builder · AI Enthusiast";
             }
         }
 
+        const scramblers = [];
+
         document.querySelectorAll('[data-scramble]').forEach(el => {
             const s = new Scramble(el);
+            scramblers.push(s);
 
+            // Desktop: hover scramble
             el.addEventListener('mouseenter', () => {
                 s.scrambleTo(s.originalText);
             });
 
             el.addEventListener('mouseleave', () => {
-                // Let current animation finish, then clean up
-                if (!s.running) {
-                    s.reset();
-                }
+                if (!s.running) s.reset();
             });
         });
+
+        // Entrance scramble on load (all devices)
+        setTimeout(() => {
+            scramblers.forEach((s, i) => {
+                setTimeout(() => s.scrambleTo(s.originalText), i * 120);
+            });
+        }, 400);
+
+        // Proximity-based scramble trigger for gyro ball / touch
+        if (isTouchDevice) {
+            let lastTriggered = new Map();
+
+            function checkProximityScramble() {
+                scramblers.forEach(s => {
+                    const rect = s.el.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    const dx = pointer.x - cx;
+                    const dy = pointer.y - cy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    const now = Date.now();
+                    const last = lastTriggered.get(s) || 0;
+
+                    if (dist < 100 && now - last > 1500) {
+                        s.scrambleTo(s.originalText);
+                        lastTriggered.set(s, now);
+                    }
+                });
+
+                requestAnimationFrame(checkProximityScramble);
+            }
+            checkProximityScramble();
+        }
     })();
     </script>
 </body>
