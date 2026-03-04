@@ -81,8 +81,30 @@ const tagline = "Developer · Builder · AI Enthusiast";
             pointer-events: auto;
         }
 
-        .intro {
+        .avatar-wrapper {
+            margin-bottom: 1.5rem;
             animation: enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .avatar {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            object-fit: cover;
+            filter: grayscale(1) contrast(1.1) brightness(0.9);
+            opacity: 0.7;
+            border: 2px solid rgba(167, 139, 250, 0.15);
+            transition: filter 0.5s, opacity 0.5s, border-color 0.5s;
+        }
+
+        .avatar:hover {
+            filter: grayscale(0.3) contrast(1.05) brightness(1);
+            opacity: 1;
+            border-color: rgba(167, 139, 250, 0.4);
+        }
+
+        .intro {
+            animation: enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
         }
 
         .name {
@@ -170,6 +192,9 @@ const tagline = "Developer · Builder · AI Enthusiast";
     <div class="noise"></div>
     <div class="content">
         <div class="inner">
+            <div class="avatar-wrapper">
+                <img src="/photo.jpg" alt="Henri Kamarainen" class="avatar" width="96" height="96">
+            </div>
             <div class="intro">
                 <h1 class="name" data-scramble data-text={title}>{title}</h1>
                 <p class="role">{tagline}</p>
