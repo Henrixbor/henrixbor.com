@@ -12,17 +12,16 @@ const tagline = "Developer · Builder · AI Enthusiast";
     <meta name="description" content={tagline}>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;1,14..32,300&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg: #09090b;
+            --bg: #08080a;
             --text: #fafafa;
             --text-secondary: #a1a1aa;
             --text-tertiary: #52525b;
-            --border: #27272a;
-            --surface: #18181b;
+            --surface: #14141a;
         }
 
         body {
@@ -32,166 +31,66 @@ const tagline = "Developer · Builder · AI Enthusiast";
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Dot grid canvas */
+        #dotGrid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+
+        /* Subtle noise overlay */
+        .noise {
+            position: fixed;
+            inset: -50%;
+            width: 200%;
+            height: 200%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            animation: grain 8s steps(10) infinite;
+        }
+
+        @keyframes grain {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5%, -10%); }
+            30% { transform: translate(3%, -15%); }
+            50% { transform: translate(12%, 9%); }
+            70% { transform: translate(9%, 4%); }
+            90% { transform: translate(-1%, 7%); }
+        }
+
+        /* Content */
+        .content {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            cursor: none;
-        }
-
-        /* Cursor glow */
-        .cursor-glow {
-            position: fixed;
-            width: 300px;
-            height: 300px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, rgba(99,102,241,0.06) 40%, transparent 70%);
             pointer-events: none;
-            z-index: 100;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.3s;
-            opacity: 0;
         }
 
-        body:hover .cursor-glow { opacity: 1; }
-
-        /* Cursor dot */
-        .cursor-dot {
-            position: fixed;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: rgba(167, 139, 250, 0.9);
-            pointer-events: none;
-            z-index: 101;
-            transform: translate(-50%, -50%);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        body:hover .cursor-dot { opacity: 1; }
-
-        /* Trail particles */
-        .trail-particle {
-            position: fixed;
-            width: 3px;
-            height: 3px;
-            border-radius: 50%;
-            background: rgba(167, 139, 250, 0.6);
-            pointer-events: none;
-            z-index: 99;
-            transform: translate(-50%, -50%);
-        }
-
-        /* Noise overlay */
-        .noise {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 50;
-            opacity: 0.035;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-            animation: noiseShift 0.15s steps(2) infinite;
-        }
-
-        @keyframes noiseShift {
-            0% { transform: translate(0, 0); }
-            50% { transform: translate(-1.5%, -1.5%); }
-            100% { transform: translate(1.5%, 1.5%); }
-        }
-
-        /* Gradient orb - parallax layer */
-        .orb {
-            position: fixed;
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.07;
-            pointer-events: none;
-            background: conic-gradient(from 180deg, #a78bfa, #818cf8, #6366f1, #a78bfa);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            animation: rotate 20s linear infinite;
-            will-change: transform;
-        }
-
-        @keyframes rotate {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        /* Grid pattern - parallax layer */
-        .grid-bg {
-            position: fixed;
-            inset: -10%;
-            width: 120%;
-            height: 120%;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-            background-size: 64px 64px;
-            mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
-            -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
-            pointer-events: none;
-            will-change: transform;
-        }
-
-        .content {
-            position: relative;
-            z-index: 10;
+        .inner {
             text-align: center;
             padding: 2rem;
-            max-width: 480px;
-            will-change: transform;
+            pointer-events: auto;
         }
 
         .intro {
-            animation: enter 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation: enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
         .name {
-            font-size: 2rem;
+            font-size: 2.2rem;
             font-weight: 500;
             letter-spacing: -0.04em;
             line-height: 1.1;
             color: var(--text);
-            position: relative;
-            display: inline-block;
-            cursor: none;
-        }
-
-        /* Text shimmer on hover */
-        .name::after {
-            content: '';
-            position: absolute;
-            inset: -4px -8px;
-            background: linear-gradient(
-                105deg,
-                transparent 20%,
-                rgba(167, 139, 250, 0.15) 45%,
-                rgba(255, 255, 255, 0.2) 50%,
-                rgba(167, 139, 250, 0.15) 55%,
-                transparent 80%
-            );
-            background-size: 250% 100%;
-            background-position: 200% center;
-            border-radius: 4px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-
-        .name:hover::after {
-            opacity: 1;
-            animation: shimmer 1.5s ease-in-out infinite;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 200% center; }
-            100% { background-position: -200% center; }
         }
 
         .role {
@@ -205,19 +104,18 @@ const tagline = "Developer · Builder · AI Enthusiast";
         .divider {
             width: 32px;
             height: 1px;
-            background: var(--border);
+            background: #27272a;
             margin: 2rem auto;
-            animation: enter 1s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+            animation: enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
         }
 
         .links {
             display: flex;
             gap: 0.25rem;
             justify-content: center;
-            animation: enter 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+            animation: enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
         }
 
-        /* Magnetic links */
         .links a {
             color: var(--text-tertiary);
             text-decoration: none;
@@ -226,14 +124,19 @@ const tagline = "Developer · Builder · AI Enthusiast";
             letter-spacing: 0.01em;
             padding: 0.5rem 0.75rem;
             border-radius: 6px;
-            transition: color 0.3s, background 0.3s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            display: inline-block;
-            cursor: none;
+            transition: color 0.3s, background 0.3s;
+            position: relative;
         }
 
         .links a:hover {
             color: var(--text);
             background: var(--surface);
+        }
+
+        /* Scramble chars get a dim style */
+        .scramble-glyph {
+            color: var(--text-tertiary);
+            opacity: 0.5;
         }
 
         .dot {
@@ -246,8 +149,8 @@ const tagline = "Developer · Builder · AI Enthusiast";
         @keyframes enter {
             from {
                 opacity: 0;
-                transform: translateY(20px);
-                filter: blur(4px);
+                transform: translateY(16px);
+                filter: blur(6px);
             }
             to {
                 opacity: 1;
@@ -258,142 +161,216 @@ const tagline = "Developer · Builder · AI Enthusiast";
 
         @media (max-width: 480px) {
             .name { font-size: 1.6rem; }
-            .content { padding: 1.5rem; }
-            /* Disable custom cursor on touch devices */
-            body { cursor: auto; }
-            .cursor-glow, .cursor-dot { display: none; }
-            .links a, .name { cursor: auto; }
-        }
-
-        @media (hover: none) {
-            body { cursor: auto; }
-            .cursor-glow, .cursor-dot { display: none; }
-            .links a, .name { cursor: auto; }
+            .inner { padding: 1.5rem; }
         }
     </style>
 </head>
 <body>
-    <div class="cursor-glow" id="cursorGlow"></div>
-    <div class="cursor-dot" id="cursorDot"></div>
+    <canvas id="dotGrid"></canvas>
     <div class="noise"></div>
-    <div class="orb" id="orb"></div>
-    <div class="grid-bg" id="grid"></div>
-    <div class="content" id="content">
-        <div class="intro">
-            <h1 class="name">{title}</h1>
-            <p class="role">{tagline}</p>
+    <div class="content">
+        <div class="inner">
+            <div class="intro">
+                <h1 class="name" data-scramble data-text={title}>{title}</h1>
+                <p class="role">{tagline}</p>
+            </div>
+            <div class="divider"></div>
+            <nav class="links">
+                <a href="https://github.com/Henrixbor" target="_blank" rel="noopener" data-scramble data-text="GitHub">GitHub</a>
+                <span class="dot">&#9679;</span>
+                <a href="https://linkedin.com/in/kamarainen" target="_blank" rel="noopener" data-scramble data-text="LinkedIn">LinkedIn</a>
+                <span class="dot">&#9679;</span>
+                <a href="mailto:henkka.kamarainen@gmail.com" data-scramble data-text="Email">Email</a>
+            </nav>
         </div>
-        <div class="divider"></div>
-        <nav class="links">
-            <a href="https://github.com/Henrixbor" target="_blank" rel="noopener" data-magnetic>GitHub</a>
-            <span class="dot">&#9679;</span>
-            <a href="https://linkedin.com/in/kamarainen" target="_blank" rel="noopener" data-magnetic>LinkedIn</a>
-            <span class="dot">&#9679;</span>
-            <a href="mailto:henkka.kamarainen@gmail.com" data-magnetic>Email</a>
-        </nav>
     </div>
 
     <script>
-        const glow = document.getElementById('cursorGlow');
-        const dot = document.getElementById('cursorDot');
-        const orb = document.getElementById('orb');
-        const grid = document.getElementById('grid');
-        const content = document.getElementById('content');
+    // ─── Interactive Dot Grid ───────────────────────────────────
+    (function() {
+        const canvas = document.getElementById('dotGrid');
+        const ctx = canvas.getContext('2d');
 
-        let mouseX = 0, mouseY = 0;
-        let glowX = 0, glowY = 0;
-        let dotX = 0, dotY = 0;
+        const DOT_SPACING = 28;
+        const DOT_RADIUS = 1;
+        const INFLUENCE_RADIUS = 120;
+        const MAX_DISPLACEMENT = 18;
+        const SPRING = 0.06;
+        const DAMPING = 0.85;
+        const BASE_ALPHA = 0.12;
+        const HOVER_ALPHA = 0.4;
+        const DOT_COLOR = '167, 139, 250'; // purple-ish
 
-        // Trail particles
-        const particles = [];
-        const TRAIL_LENGTH = 18;
-        let lastTrailTime = 0;
+        let dots = [];
+        let mouse = { x: -1000, y: -1000 };
+        let w, h;
 
-        function createParticle(x, y) {
-            const el = document.createElement('div');
-            el.className = 'trail-particle';
-            document.body.appendChild(el);
-            return { el, x, y, life: 1, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5 };
-        }
+        function init() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+            dots = [];
 
-        document.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
+            const cols = Math.ceil(w / DOT_SPACING) + 2;
+            const rows = Math.ceil(h / DOT_SPACING) + 2;
+            const offsetX = (w - (cols - 1) * DOT_SPACING) / 2;
+            const offsetY = (h - (rows - 1) * DOT_SPACING) / 2;
 
-            // Spawn trail particles with throttle
-            const now = performance.now();
-            if (now - lastTrailTime > 30) {
-                lastTrailTime = now;
-                if (particles.length < TRAIL_LENGTH) {
-                    particles.push(createParticle(mouseX, mouseY));
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    dots.push({
+                        ox: offsetX + c * DOT_SPACING,
+                        oy: offsetY + r * DOT_SPACING,
+                        x: offsetX + c * DOT_SPACING,
+                        y: offsetY + r * DOT_SPACING,
+                        vx: 0,
+                        vy: 0,
+                    });
                 }
             }
-        });
+        }
 
-        // Magnetic links
-        document.querySelectorAll('[data-magnetic]').forEach(link => {
-            link.addEventListener('mousemove', (e) => {
-                const rect = link.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const dx = (e.clientX - cx) * 0.3;
-                const dy = (e.clientY - cy) * 0.3;
-                link.style.transform = `translate(${dx}px, ${dy}px)`;
-            });
-
-            link.addEventListener('mouseleave', () => {
-                link.style.transform = 'translate(0, 0)';
-            });
-        });
-
-        // Animation loop
         function animate() {
-            // Smooth cursor glow (slow follow)
-            glowX += (mouseX - glowX) * 0.08;
-            glowY += (mouseY - glowY) * 0.08;
-            glow.style.left = glowX + 'px';
-            glow.style.top = glowY + 'px';
+            ctx.clearRect(0, 0, w, h);
 
-            // Cursor dot (fast follow)
-            dotX += (mouseX - dotX) * 0.25;
-            dotY += (mouseY - dotY) * 0.25;
-            dot.style.left = dotX + 'px';
-            dot.style.top = dotY + 'px';
+            for (let i = 0; i < dots.length; i++) {
+                const d = dots[i];
+                const dx = mouse.x - d.ox;
+                const dy = mouse.y - d.oy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
 
-            // Parallax depth
-            const cx = (mouseX / window.innerWidth - 0.5) * 2;
-            const cy = (mouseY / window.innerHeight - 0.5) * 2;
-
-            // Orb moves slowly (deep layer)
-            orb.style.transform = `translate(calc(-50% + ${cx * 15}px), calc(-50% + ${cy * 15}px)) rotate(${performance.now() * 0.018}deg)`;
-
-            // Grid moves medium (mid layer)
-            grid.style.transform = `translate(${cx * -8}px, ${cy * -8}px)`;
-
-            // Content moves slightly opposite (foreground)
-            content.style.transform = `translate(${cx * 3}px, ${cy * 3}px)`;
-
-            // Update trail particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.life -= 0.025;
-                p.x += p.vx;
-                p.y += p.vy;
-                p.el.style.left = p.x + 'px';
-                p.el.style.top = p.y + 'px';
-                p.el.style.opacity = p.life;
-                p.el.style.transform = `translate(-50%, -50%) scale(${p.life})`;
-
-                if (p.life <= 0) {
-                    p.el.remove();
-                    particles.splice(i, 1);
+                if (dist < INFLUENCE_RADIUS) {
+                    const force = (1 - dist / INFLUENCE_RADIUS);
+                    const forceSq = force * force; // quadratic falloff for smoother feel
+                    const angle = Math.atan2(dy, dx);
+                    const push = forceSq * MAX_DISPLACEMENT;
+                    d.vx += (-Math.cos(angle) * push - (d.x - d.ox)) * SPRING;
+                    d.vy += (-Math.sin(angle) * push - (d.y - d.oy)) * SPRING;
+                } else {
+                    d.vx += (d.ox - d.x) * SPRING;
+                    d.vy += (d.oy - d.y) * SPRING;
                 }
+
+                d.vx *= DAMPING;
+                d.vy *= DAMPING;
+                d.x += d.vx;
+                d.y += d.vy;
+
+                // Alpha based on displacement
+                const displacement = Math.sqrt((d.x - d.ox) ** 2 + (d.y - d.oy) ** 2);
+                const alpha = BASE_ALPHA + (HOVER_ALPHA - BASE_ALPHA) * Math.min(displacement / MAX_DISPLACEMENT, 1);
+
+                // Size scales slightly with displacement
+                const radius = DOT_RADIUS + displacement * 0.04;
+
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${DOT_COLOR}, ${alpha})`;
+                ctx.fill();
             }
 
             requestAnimationFrame(animate);
         }
 
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        window.addEventListener('mouseleave', () => {
+            mouse.x = -1000;
+            mouse.y = -1000;
+        });
+
+        window.addEventListener('resize', init);
+        init();
         animate();
+    })();
+
+    // ─── Text Scramble ──────────────────────────────────────────
+    (function() {
+        const GLYPHS = '!<>-_\\/[]{}—=+*^?#________';
+
+        class Scramble {
+            constructor(el) {
+                this.el = el;
+                this.originalText = el.dataset.text;
+                this.queue = [];
+                this.frame = 0;
+                this.running = false;
+                this.raf = null;
+            }
+
+            scrambleTo(text) {
+                const current = this.el.textContent;
+                const len = Math.max(current.length, text.length);
+                this.queue = [];
+
+                for (let i = 0; i < len; i++) {
+                    const from = current[i] || '';
+                    const to = text[i] || '';
+                    const start = Math.floor(Math.random() * 15);
+                    const end = start + Math.floor(Math.random() * 25) + 5;
+                    this.queue.push({ from, to, start, end, char: null });
+                }
+
+                cancelAnimationFrame(this.raf);
+                this.frame = 0;
+                this.running = true;
+                this.tick();
+            }
+
+            tick() {
+                let output = '';
+                let done = 0;
+
+                for (let i = 0; i < this.queue.length; i++) {
+                    const q = this.queue[i];
+
+                    if (this.frame >= q.end) {
+                        done++;
+                        output += q.to;
+                    } else if (this.frame >= q.start) {
+                        if (!q.char || Math.random() < 0.3) {
+                            q.char = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+                        }
+                        output += `<span class="scramble-glyph">${q.char}</span>`;
+                    } else {
+                        output += q.from;
+                    }
+                }
+
+                this.el.innerHTML = output;
+                this.frame++;
+
+                if (done < this.queue.length) {
+                    this.raf = requestAnimationFrame(() => this.tick());
+                } else {
+                    this.running = false;
+                }
+            }
+
+            reset() {
+                cancelAnimationFrame(this.raf);
+                this.running = false;
+                this.el.textContent = this.originalText;
+            }
+        }
+
+        document.querySelectorAll('[data-scramble]').forEach(el => {
+            const s = new Scramble(el);
+
+            el.addEventListener('mouseenter', () => {
+                s.scrambleTo(s.originalText);
+            });
+
+            el.addEventListener('mouseleave', () => {
+                // Let current animation finish, then clean up
+                if (!s.running) {
+                    s.reset();
+                }
+            });
+        });
+    })();
     </script>
 </body>
 </html>
