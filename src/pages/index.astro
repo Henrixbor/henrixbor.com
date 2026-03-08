@@ -1077,7 +1077,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 eyeBtn.classList.add('eye-near', 'eye-locked');
                 eyeLockedTime += 16;
                 // Auto-open after hovering ~1.2s
-                if (eyeLockedTime > 1200 && !eyeAutoTriggered) {
+                if (eyeLockedTime > 1200 && !eyeAutoTriggered && !document.getElementById('modalOverlay').classList.contains('open')) {
                     eyeAutoTriggered = true;
                     eyeBtn.click();
                 }
@@ -1106,6 +1106,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
 
         function close() {
             overlay.classList.remove('open');
+            scanRunning = false;
             const mapEl = document.getElementById('modalMap');
             const gpsDot = document.getElementById('mapGpsDot');
             if (mapEl) mapEl.classList.remove('visible');
@@ -1117,10 +1118,14 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
+        let scanRunning = false;
         btn.addEventListener('click', async () => {
+            if (scanRunning) return;
+            scanRunning = true;
             overlay.classList.add('open');
             body.innerHTML = '';
             await gatherAndReveal();
+            scanRunning = false;
         });
 
         // ── Gather all available info ──
