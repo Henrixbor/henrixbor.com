@@ -377,6 +377,14 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             align-items: center;
             gap: 0.5rem;
         }
+        .modal-subtitle {
+            font-size: 0.55rem;
+            font-weight: 400;
+            color: var(--text-tertiary);
+            text-transform: none;
+            letter-spacing: 0.02em;
+            margin-left: 0.15rem;
+        }
         .modal-title .pulse {
             width: 6px;
             height: 6px;
@@ -539,7 +547,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title"><span class="pulse"></span> scanning visitor</div>
+                <div class="modal-title"><span class="pulse"></span> scanning visitor <span class="modal-subtitle">every website sees this</span></div>
                 <button class="modal-close" id="modalClose">&times;</button>
             </div>
             <div class="modal-body" id="modalBody"></div>
@@ -1054,23 +1062,62 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             const prefs = [
                 window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark mode' : 'light mode',
                 window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced motion' : null,
+                window.matchMedia('(prefers-contrast: more)').matches ? 'high contrast' : null,
                 navigator.doNotTrack === '1' ? 'DNT on' : null,
                 navigator.cookieEnabled ? null : 'cookies off',
             ].filter(Boolean).join(', ');
             info.prefs = { label: 'Preferences', value: prefs || 'Default' };
 
-            // Fingerprint
+            // Display capabilities
+            const displayCaps = [
+                window.matchMedia('(dynamic-range: high)').matches ? 'HDR' : 'SDR',
+                window.matchMedia('(pointer: fine)').matches ? 'precise pointer' : 'coarse pointer',
+                screen.isExtended ? 'multi-monitor' : null,
+            ].filter(Boolean).join(', ');
+            info.displayCaps = { label: 'Display Caps', value: displayCaps };
+
+            // Media devices
+            info.mediaDevices = { label: 'Cameras / Mics', value: '...' };
+
+            // Storage
+            info.storage = { label: 'Storage Quota', value: '...' };
+
+            // Network latency
+            info.latency = { label: 'Network RTT', value: conn && conn.rtt ? `${conn.rtt}ms` : '...' };
+
+            // Audio fingerprint
+            info.audioHash = { label: 'Audio Hash', value: getAudioFingerprint() };
+
+            // Canvas fingerprint
             info.canvasHash = { label: 'Canvas Hash', value: getCanvasFingerprint() };
+
+            // WebGL extensions
+            info.glExtensions = { label: 'GL Extensions', value: countGLExtensions() };
+
+            // Fonts
             info.fonts = { label: 'Fonts', value: detectFonts() };
+
+            // Gamepad
+            info.gamepad = { label: 'Gamepads', value: detectGamepads() };
+
+            // Service workers
+            info.sw = { label: 'Service Workers', value: 'serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations()).length + ' registered' : 'Not supported' };
+
+            // Page session
             info.referrer = { label: 'Referrer', value: document.referrer || 'Direct visit' };
+            info.sessionTime = { label: 'Time on Page', value: `${(performance.now() / 1000).toFixed(1)}s` };
+
+            // Returning visitor
+            info.returning = { label: 'Visitor', value: detectReturningVisitor() };
 
             // Build the DOM
             const sections = [
-                { label: 'Network', keys: ['ip', 'location', 'isp'] },
-                { label: 'System', keys: ['browser', 'os', 'screen', 'viewport'] },
+                { label: 'Network', keys: ['ip', 'location', 'isp', 'latency'] },
+                { label: 'System', keys: ['browser', 'os', 'screen', 'viewport', 'displayCaps'] },
                 { label: 'Locale', keys: ['timezone', 'localTime', 'language'] },
-                { label: 'Hardware', keys: ['cpu', 'gpu', 'touch', 'connection', 'battery'] },
-                { label: 'Fingerprint', keys: ['prefs', 'canvasHash', 'fonts', 'referrer'] },
+                { label: 'Hardware', keys: ['cpu', 'gpu', 'touch', 'connection', 'battery', 'mediaDevices', 'gamepad'] },
+                { label: 'Fingerprint', keys: ['prefs', 'canvasHash', 'audioHash', 'glExtensions', 'fonts', 'storage', 'sw'] },
+                { label: 'Session', keys: ['referrer', 'sessionTime', 'returning'] },
             ];
 
             const allVals = [];
@@ -1117,6 +1164,40 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                     info.battery.value = 'Not available';
                 }
             } catch { info.battery.value = 'Not available'; }
+
+            // Media devices
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const cams = devices.filter(d => d.kind === 'videoinput').length;
+                    const mics = devices.filter(d => d.kind === 'audioinput').length;
+                    const spk = devices.filter(d => d.kind === 'audiooutput').length;
+                    info.mediaDevices.value = `${cams} cam, ${mics} mic, ${spk} speaker`;
+                } else {
+                    info.mediaDevices.value = 'Not available';
+                }
+            } catch { info.mediaDevices.value = 'Blocked'; }
+
+            // Storage quota
+            try {
+                if (navigator.storage && navigator.storage.estimate) {
+                    const est = await navigator.storage.estimate();
+                    const usedMB = (est.usage / 1048576).toFixed(1);
+                    const quotaMB = (est.quota / 1073741824).toFixed(1);
+                    info.storage.value = `${usedMB} MB used / ${quotaMB} GB quota`;
+                } else {
+                    info.storage.value = 'Not available';
+                }
+            } catch { info.storage.value = 'Blocked'; }
+
+            // Network latency (measure with IP fetch if not already available from Network Info API)
+            if (info.latency.value === '...') {
+                try {
+                    const t0 = performance.now();
+                    await fetch('https://ipapi.co/json/', { method: 'HEAD', mode: 'no-cors' });
+                    info.latency.value = `~${Math.round(performance.now() - t0)}ms`;
+                } catch { info.latency.value = 'Unknown'; }
+            }
 
             // Staggered reveal for raw data
             for (let i = 0; i < allVals.length; i++) {
@@ -1265,8 +1346,83 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             deds.push({ icon: '\u{1F512}', text: `${privacyLabel} (score: ${privacyScore}/100)`, confidence: 80 });
 
             // ── Unique fingerprint ──
-            const fpHash = info.canvasHash.value;
             deds.push({ icon: '\u{1F9EC}', text: `Your browser fingerprint is near-unique`, confidence: 92 });
+
+            // ── Income bracket estimate ──
+            const tierLabel = info.gpu ? estimateDeviceTier(cores, mem, window.devicePixelRatio || 1, info.gpu.value, w, h).label : '';
+            if (tierLabel.includes('1,500+')) {
+                deds.push({ icon: '\u{1F4B8}', text: 'Estimated income: above average (premium hardware)', confidence: 45 });
+            } else if (tierLabel.includes('800')) {
+                deds.push({ icon: '\u{1F4B5}', text: 'Estimated income: average (solid mid-range setup)', confidence: 40 });
+            } else {
+                deds.push({ icon: '\u{1F4B2}', text: 'Estimated income: budget-conscious or student', confidence: 35 });
+            }
+
+            // ── Tech savviness score ──
+            let techScore = 0;
+            if (adBlock) techScore += 20;
+            if (incognito) techScore += 15;
+            if (navigator.doNotTrack === '1') techScore += 10;
+            if (devSignals.isDev) techScore += 25;
+            if (cores >= 8) techScore += 10;
+            if (ua.includes('Firefox')) techScore += 10;  // Firefox = deliberate choice
+            if (ua.includes('Linux') && !ua.includes('Android')) techScore += 15;
+            const vpnForTech = info.location.value !== 'Blocked' ? detectVPN(Intl.DateTimeFormat().resolvedOptions().timeZone, info.location.value) : { detected: false };
+            if (vpnForTech.detected) techScore += 15;
+            const techLabel = techScore >= 60 ? 'Power user / tech enthusiast'
+                : techScore >= 35 ? 'Above average tech literacy'
+                : techScore >= 15 ? 'Average user'
+                : 'Casual user';
+            deds.push({ icon: '\u{1F9E0}', text: `Tech savviness: ${techLabel} (${Math.min(techScore, 100)}/100)`, confidence: 55 });
+
+            // ── Age range guess ──
+            const langStr = (navigator.languages || []).join(',');
+            let ageGuess = '';
+            if (touch > 0 && w < 500) {
+                if (hour >= 22 || hour < 5) ageGuess = '16–30 (mobile late-night browsing pattern)';
+                else ageGuess = '18–40 (mobile user)';
+            } else if (cores >= 12 && mem >= 16) {
+                ageGuess = '25–45 (workstation-class hardware)';
+            } else if (ua.includes('Firefox') || (adBlock && navigator.doNotTrack === '1')) {
+                ageGuess = '25–45 (privacy-aware choices suggest experience)';
+            } else {
+                ageGuess = '20–50 (insufficient signals for precision)';
+            }
+            deds.push({ icon: '\u{1F382}', text: `Age range guess: ${ageGuess}`, confidence: 25 });
+
+            // ── Likely profession ──
+            let profession = '';
+            if (devSignals.isDev) {
+                if (cores >= 12 && mem >= 16) profession = 'Software engineer (senior/infra)';
+                else profession = 'Developer / engineer';
+            } else if (ua.includes('Macintosh') && (w >= 1440 || dpr >= 2)) {
+                profession = 'Creative professional or knowledge worker';
+            } else if (touch > 0 && w < 500) {
+                profession = 'Mobile-first user (student, social media, or casual)';
+            } else if (ua.includes('Windows') && cores >= 8) {
+                profession = 'Office worker or gamer';
+            } else {
+                profession = 'General user';
+            }
+            deds.push({ icon: '\u{1F4BC}', text: `Likely role: ${profession}`, confidence: 35 });
+
+            // ── Screen fatigue ──
+            const brightness = screen.colorDepth >= 30 ? 'high color depth (likely calibrated display)' : 'standard display';
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (darkMode && reducedMotion) {
+                deds.push({ icon: '\u{1F60E}', text: 'Screen fatigue settings active (dark mode + reduced motion)', confidence: 80 });
+            } else if (darkMode && hour >= 20) {
+                deds.push({ icon: '\u{1F319}', text: 'Night browsing with dark mode — protecting your eyes', confidence: 70 });
+            }
+
+            // ── Returning visitor deduction ──
+            const visitVal = info.returning ? info.returning.value : '';
+            if (visitVal.includes('Returning')) {
+                const visitNum = parseInt(visitVal.match(/\d+/)?.[0] || '2');
+                if (visitNum >= 5) deds.push({ icon: '\u{2B50}', text: `Frequent visitor (${visitNum} visits) — you keep coming back`, confidence: 95 });
+                else if (visitNum >= 2) deds.push({ icon: '\u{1F44B}', text: `Welcome back! Visit #${visitNum}`, confidence: 95 });
+            }
 
             return deds;
         }
@@ -1512,6 +1668,70 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 }
                 return (hash >>> 0).toString(16).padStart(8, '0');
             } catch { return 'blocked'; }
+        }
+
+        // ── Audio fingerprint ──
+        function getAudioFingerprint() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = ctx.createOscillator();
+                const analyser = ctx.createAnalyser();
+                const gain = ctx.createGain();
+                const script = ctx.createScriptProcessor(4096, 1, 1);
+                gain.gain.value = 0;
+                oscillator.type = 'triangle';
+                oscillator.frequency.value = 10000;
+                oscillator.connect(analyser);
+                analyser.connect(script);
+                script.connect(gain);
+                gain.connect(ctx.destination);
+                oscillator.start(0);
+                const bins = new Float32Array(analyser.frequencyBinCount);
+                analyser.getFloatFrequencyData(bins);
+                oscillator.stop();
+                ctx.close();
+                let hash = 0;
+                for (let i = 0; i < bins.length; i++) {
+                    if (isFinite(bins[i])) {
+                        hash = ((hash << 5) - hash) + Math.round(bins[i] * 1000);
+                        hash |= 0;
+                    }
+                }
+                return (hash >>> 0).toString(16).padStart(8, '0');
+            } catch { return 'blocked'; }
+        }
+
+        // ── WebGL extension count ──
+        function countGLExtensions() {
+            try {
+                const c = document.createElement('canvas');
+                const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+                if (!gl) return 'No WebGL';
+                const exts = gl.getSupportedExtensions();
+                return exts ? `${exts.length} extensions` : '0 extensions';
+            } catch { return 'Unknown'; }
+        }
+
+        // ── Gamepad detection ──
+        function detectGamepads() {
+            try {
+                const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+                const connected = Array.from(pads).filter(Boolean);
+                if (connected.length === 0) return 'None';
+                return connected.map(p => p.id.substring(0, 30)).join(', ');
+            } catch { return 'Not supported'; }
+        }
+
+        // ── Returning visitor detection ──
+        function detectReturningVisitor() {
+            try {
+                const key = '_hxb_visits';
+                const prev = localStorage.getItem(key);
+                const count = prev ? parseInt(prev) + 1 : 1;
+                localStorage.setItem(key, String(count));
+                if (count === 1) return 'First visit';
+                return `Returning (visit #${count})`;
+            } catch { return 'Unknown'; }
         }
 
         function detectFonts() {
