@@ -1304,7 +1304,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 dedSection.appendChild(row);
                 await delay(120 + Math.random() * 80);
                 row.querySelector('.deduction-text').textContent = ded.text;
-                row.querySelector('.deduction-confidence').textContent = ded.confidence ? `${ded.confidence}%` : '';
+                row.querySelector('.deduction-confidence').textContent = ded.confidence ? `, ${ded.confidence}%` : '';
                 row.classList.remove('scanning');
                 row.classList.add('revealed');
             }
