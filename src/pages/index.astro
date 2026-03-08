@@ -360,6 +360,8 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         .modal-map {
             position: absolute;
             inset: 0;
+            width: 100%;
+            height: 100%;
             z-index: 0;
             opacity: 0;
             transition: opacity 2s ease;
@@ -369,16 +371,15 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         .modal-map.visible {
             opacity: 0.7;
         }
-        /* Purple-tinted dark overlay + scanlines over map */
+        /* Purple-tinted dark overlay + scanlines over map — below marker pane */
         .modal-map::after {
             content: '';
             position: absolute;
             inset: 0;
-            z-index: 1;
+            z-index: 450; /* above tiles (200) but below markers (600+) */
             background:
                 linear-gradient(180deg, rgba(12,10,20,0.93) 0%, rgba(16,12,28,0.78) 35%, rgba(12,10,20,0.88) 100%),
                 repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(167,139,250,0.02) 2px, rgba(167,139,250,0.02) 4px);
-            mix-blend-mode: normal;
             pointer-events: none;
         }
         /* Purple tint on tiles themselves */
@@ -387,6 +388,11 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         }
         /* Hide Leaflet controls & attribution */
         .modal-map .leaflet-control-container { display: none; }
+        /* Ensure marker pane is above the ::after overlay */
+        .modal-map .leaflet-marker-pane,
+        .modal-map .leaflet-shadow-pane {
+            z-index: 500 !important;
+        }
         /* GPS-style neon marker */
         .map-pulse-marker {
             position: relative;
@@ -1801,9 +1807,13 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
 
             modalMapInstance = map;
 
+            // Force Leaflet to recalculate size after modal is visible
+            setTimeout(() => map.invalidateSize(), 100);
+
             if (hasCoords) {
                 // Animated zoom-in after a short delay
                 setTimeout(() => {
+                    map.invalidateSize();
                     map.flyTo([lat, lon], 12, { duration: 2.5, easeLinearity: 0.25 });
 
                     // Add pulsing marker at the location
