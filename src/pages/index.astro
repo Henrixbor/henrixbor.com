@@ -13,6 +13,8 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -353,6 +355,65 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             transform: translateY(20px) scale(0.96);
             transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+        .modal-map {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0;
+            transition: opacity 1.5s ease;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .modal-map.visible {
+            opacity: 1;
+        }
+        /* Dark tint + scanline over map */
+        .modal-map::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background:
+                linear-gradient(180deg, rgba(12,12,16,0.92) 0%, rgba(12,12,16,0.75) 40%, rgba(12,12,16,0.85) 100%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(167,139,250,0.015) 2px, rgba(167,139,250,0.015) 4px);
+            pointer-events: none;
+        }
+        /* Hide Leaflet controls & attribution */
+        .modal-map .leaflet-control-container { display: none; }
+        /* Map marker pulse */
+        .map-pulse-marker { position: relative; }
+        .map-marker-dot {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px; height: 8px;
+            background: #a78bfa;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #a78bfa, 0 0 20px rgba(167,139,250,0.4);
+            z-index: 2;
+        }
+        .map-marker-ring {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px; height: 30px;
+            border: 1.5px solid rgba(167,139,250,0.5);
+            border-radius: 50%;
+            animation: mapRing 2s ease-out infinite;
+        }
+        @keyframes mapRing {
+            0% { width: 8px; height: 8px; opacity: 1; }
+            100% { width: 50px; height: 50px; opacity: 0; }
+        }
+        .modal-content-layer {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            max-height: 88vh;
+            overflow: hidden;
         }
         .modal-overlay.open .modal {
             transform: translateY(0) scale(1);
@@ -546,12 +607,15 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
     <!-- Modal overlay -->
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title"><span class="pulse"></span> scanning visitor <span class="modal-subtitle">every website sees this</span></div>
-                <button class="modal-close" id="modalClose">&times;</button>
+            <div id="modalMap" class="modal-map"></div>
+            <div class="modal-content-layer">
+                <div class="modal-header">
+                    <div class="modal-title"><span class="pulse"></span> scanning visitor <span class="modal-subtitle">every website sees this</span></div>
+                    <button class="modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+                <div class="modal-footer">all data collected client-side &middot; nothing is stored</div>
             </div>
-            <div class="modal-body" id="modalBody"></div>
-            <div class="modal-footer">all data collected client-side &middot; nothing is stored</div>
         </div>
     </div>
     <div class="content">
@@ -1015,7 +1079,12 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         const btn = document.getElementById('seeBtn');
         const closeBtn = document.getElementById('modalClose');
 
-        function close() { overlay.classList.remove('open'); }
+        function close() {
+            overlay.classList.remove('open');
+            const mapEl = document.getElementById('modalMap');
+            if (mapEl) mapEl.classList.remove('visible');
+            if (modalMapInstance) { modalMapInstance.remove(); modalMapInstance = null; }
+        }
         closeBtn.addEventListener('click', close);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
@@ -1140,7 +1209,8 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 body.appendChild(div);
             });
 
-            // Fetch IP data
+            // Fetch IP data + init map
+            let ipLat = null, ipLon = null;
             try {
                 const resp = await fetch('https://ipapi.co/json/');
                 if (resp.ok) {
@@ -1148,12 +1218,17 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                     info.ip.value = data.ip || 'Unknown';
                     info.location.value = [data.city, data.region, data.country_name].filter(Boolean).join(', ');
                     info.isp.value = [data.org, data.asn].filter(Boolean).join(' / ') || 'Unknown';
+                    ipLat = data.latitude;
+                    ipLon = data.longitude;
                 }
             } catch {
                 info.ip.value = 'Blocked';
                 info.location.value = 'Blocked';
                 info.isp.value = 'Blocked';
             }
+
+            // Initialize map behind modal
+            initModalMap(ipLat, ipLon);
 
             // Battery
             try {
@@ -1668,6 +1743,63 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 }
                 return (hash >>> 0).toString(16).padStart(8, '0');
             } catch { return 'blocked'; }
+        }
+
+        // ── Map initialization ──
+        let modalMapInstance = null;
+        function initModalMap(lat, lon) {
+            const mapEl = document.getElementById('modalMap');
+            if (!mapEl || !window.L) return;
+
+            // Clean up previous instance
+            if (modalMapInstance) {
+                modalMapInstance.remove();
+                modalMapInstance = null;
+            }
+
+            // Default to world center if no coords
+            const hasCoords = lat != null && lon != null && isFinite(lat) && isFinite(lon);
+            const startLat = hasCoords ? lat : 30;
+            const startLon = hasCoords ? lon : 0;
+
+            const map = L.map(mapEl, {
+                zoomControl: false,
+                attributionControl: false,
+                dragging: false,
+                scrollWheelZoom: false,
+                doubleClickZoom: false,
+                touchZoom: false,
+                keyboard: false,
+                boxZoom: false,
+            }).setView([startLat, startLon], 3);
+
+            // Dark map tiles (CartoDB Dark Matter)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+                maxZoom: 18,
+            }).addTo(map);
+
+            modalMapInstance = map;
+
+            if (hasCoords) {
+                // Animated zoom-in after a short delay
+                setTimeout(() => {
+                    map.flyTo([lat, lon], 12, { duration: 2.5, easeLinearity: 0.25 });
+
+                    // Add pulsing marker at the location
+                    setTimeout(() => {
+                        const pulseIcon = L.divIcon({
+                            className: 'map-pulse-marker',
+                            html: '<div class="map-marker-dot"></div><div class="map-marker-ring"></div>',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10],
+                        });
+                        L.marker([lat, lon], { icon: pulseIcon }).addTo(map);
+                        mapEl.classList.add('visible');
+                    }, 800);
+                }, 600);
+            } else {
+                mapEl.classList.add('visible');
+            }
         }
 
         // ── Audio fingerprint ──
