@@ -362,23 +362,28 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             inset: 0;
             z-index: 0;
             opacity: 0;
-            transition: opacity 1.5s ease;
+            transition: opacity 2s ease;
             border-radius: 12px;
             overflow: hidden;
         }
         .modal-map.visible {
-            opacity: 1;
+            opacity: 0.7;
         }
-        /* Dark tint + scanline over map */
+        /* Purple-tinted dark overlay + scanlines over map */
         .modal-map::after {
             content: '';
             position: absolute;
             inset: 0;
             z-index: 1;
             background:
-                linear-gradient(180deg, rgba(12,12,16,0.92) 0%, rgba(12,12,16,0.75) 40%, rgba(12,12,16,0.85) 100%),
-                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(167,139,250,0.015) 2px, rgba(167,139,250,0.015) 4px);
+                linear-gradient(180deg, rgba(12,10,20,0.93) 0%, rgba(16,12,28,0.78) 35%, rgba(12,10,20,0.88) 100%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(167,139,250,0.02) 2px, rgba(167,139,250,0.02) 4px);
+            mix-blend-mode: normal;
             pointer-events: none;
+        }
+        /* Purple tint on tiles themselves */
+        .modal-map .leaflet-tile-pane {
+            filter: brightness(0.6) saturate(0.3) sepia(0.15) hue-rotate(220deg);
         }
         /* Hide Leaflet controls & attribution */
         .modal-map .leaflet-control-container { display: none; }
@@ -388,10 +393,10 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 8px; height: 8px;
-            background: #a78bfa;
+            width: 6px; height: 6px;
+            background: #c4b5fd;
             border-radius: 50%;
-            box-shadow: 0 0 8px #a78bfa, 0 0 20px rgba(167,139,250,0.4);
+            box-shadow: 0 0 6px rgba(196,181,253,0.6), 0 0 16px rgba(167,139,250,0.25);
             z-index: 2;
         }
         .map-marker-ring {
@@ -399,13 +404,13 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             width: 30px; height: 30px;
-            border: 1.5px solid rgba(167,139,250,0.5);
+            border: 1px solid rgba(167,139,250,0.35);
             border-radius: 50%;
-            animation: mapRing 2s ease-out infinite;
+            animation: mapRing 2.5s ease-out infinite;
         }
         @keyframes mapRing {
-            0% { width: 8px; height: 8px; opacity: 1; }
-            100% { width: 50px; height: 50px; opacity: 0; }
+            0% { width: 6px; height: 6px; opacity: 0.8; }
+            100% { width: 60px; height: 60px; opacity: 0; }
         }
         .modal-content-layer {
             position: relative;
