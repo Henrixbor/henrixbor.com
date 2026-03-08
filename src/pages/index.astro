@@ -1362,73 +1362,102 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             const cores = navigator.hardwareConcurrency || 0;
             const mem = navigator.deviceMemory || 0;
             const touch = navigator.maxTouchPoints;
+            const hour = new Date().getHours();
+            const day = new Date().getDay(); // 0=Sun
+            const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const ipLocation = info.location.value;
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            const incognito = detectIncognito();
+            const adBlock = detectAdBlocker();
+            const devSignals = detectDeveloper(ua, gpu);
+            const botScore = detectBot(ua);
+            const tier = estimateDeviceTier(cores, mem, dpr, gpu, w, h);
+            const langs = navigator.languages || [navigator.language];
+            const vpnResult = (ipLocation && ipLocation !== 'Blocked' && ipLocation !== '...') ? detectVPN(tz, ipLocation) : { detected: false };
 
             // ── Device identification ──
             const device = identifyDevice(w, h, dpr, gpu, ua, touch);
             if (device) deds.push({ icon: '\u{1F4F1}', text: `Likely device: ${device.name}`, confidence: device.confidence });
 
-            // ── Device tier / price ──
-            const tier = estimateDeviceTier(cores, mem, dpr, gpu, w, h);
+            // ── Device tier ──
             deds.push({ icon: '\u{1F4B0}', text: `Device tier: ${tier.label}`, confidence: tier.confidence });
 
-            // ── VPN detection ──
-            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const ipLocation = info.location.value;
-            if (ipLocation && ipLocation !== 'Blocked' && ipLocation !== '...') {
-                const vpn = detectVPN(tz, ipLocation);
-                if (vpn.detected) {
-                    deds.push({ icon: '\u{1F6E1}', text: 'VPN or proxy likely active', confidence: vpn.confidence });
-                }
-            }
-
-            // ── Incognito detection ──
-            const incognito = detectIncognito();
-            if (incognito) deds.push({ icon: '\u{1F576}', text: 'Private/incognito mode detected', confidence: 70 });
-
-            // ── Ad blocker ──
-            const adBlock = detectAdBlocker();
-            deds.push({ icon: adBlock ? '\u{1F6AB}' : '\u{1F4E2}', text: adBlock ? 'Ad blocker detected' : 'No ad blocker detected', confidence: adBlock ? 85 : 60 });
-
-            // ── Developer detection ──
-            const devSignals = detectDeveloper(ua, gpu);
-            if (devSignals.isDev) {
-                deds.push({ icon: '\u{1F468}\u{200D}\u{1F4BB}', text: `Likely a developer (${devSignals.reason})`, confidence: devSignals.confidence });
-            }
-
-            // ── Time-of-day personality ──
-            const hour = new Date().getHours();
-            const timeLabel = hour < 5 ? 'Night owl \u{2014} browsing past midnight'
-                : hour < 7 ? 'Very early riser'
-                : hour < 9 ? 'Morning person'
-                : hour < 12 ? 'Mid-morning browser'
-                : hour < 14 ? 'Lunch break browsing'
-                : hour < 17 ? 'Afternoon browser'
-                : hour < 20 ? 'Evening browser'
-                : hour < 23 ? 'Late evening browser'
-                : 'Night owl \u{2014} browsing past 11 PM';
-            deds.push({ icon: '\u{1F553}', text: timeLabel, confidence: 95 });
-
-            // ── Browsing context ──
-            const context = inferContext(hour, info.connection.value, touch);
-            deds.push({ icon: context.icon, text: `Likely browsing from ${context.where}`, confidence: context.confidence });
-
-            // ── Bot detection ──
-            const botScore = detectBot(ua);
+            // ── Bot detection (show early if bot) ──
             if (botScore.isBot) {
                 deds.push({ icon: '\u{1F916}', text: `Automated browser detected (${botScore.reason})`, confidence: botScore.confidence });
             }
 
+            // ── VPN / proxy ──
+            if (vpnResult.detected) {
+                deds.push({ icon: '\u{1F6E1}', text: 'VPN or proxy likely active (timezone/IP mismatch)', confidence: vpnResult.confidence });
+            }
+
+            // ── Incognito ──
+            if (incognito) deds.push({ icon: '\u{1F576}', text: 'Private/incognito mode detected', confidence: 70 });
+
+            // ── Ad blocker ──
+            deds.push({ icon: adBlock ? '\u{1F6AB}' : '\u{1F4E2}',
+                text: adBlock ? 'Ad blocker active' : 'No ad blocker — you see all the ads',
+                confidence: adBlock ? 90 : 70 });
+
+            // ── Developer detection ──
+            if (devSignals.isDev) {
+                deds.push({ icon: '\u{1F468}\u{200D}\u{1F4BB}', text: `Likely a developer (${devSignals.reason})`, confidence: devSignals.confidence });
+            }
+
+            // ── Browsing context — time + device + day ──
+            const isWeekend = day === 0 || day === 6;
+            const isMobile = touch > 0 && w < 768;
+            let contextText = '';
+            let contextIcon = '';
+            if (hour >= 0 && hour < 5) {
+                contextIcon = '\u{1F319}';
+                contextText = isMobile ? 'Late-night phone scrolling in bed' : 'Burning the midnight oil at a desk';
+            } else if (hour < 7) {
+                contextIcon = '\u{1F305}';
+                contextText = isMobile ? 'Early riser — checking phone before getting up' : 'Up before dawn at the computer';
+            } else if (hour < 9) {
+                contextIcon = isMobile ? '\u{1F687}' : '\u{2615}';
+                contextText = isMobile ? 'Morning commute browsing' : 'Morning coffee + browsing';
+            } else if (hour < 12) {
+                contextIcon = isWeekend ? '\u{1F3E0}' : '\u{1F3E2}';
+                contextText = isWeekend ? 'Weekend morning at home' : 'Mid-morning — procrastinating at work?';
+            } else if (hour < 14) {
+                contextIcon = '\u{1F35C}';
+                contextText = isWeekend ? 'Lazy weekend lunch browsing' : 'Lunch break browsing';
+            } else if (hour < 17) {
+                contextIcon = isWeekend ? '\u{2600}' : '\u{1F3E2}';
+                contextText = isWeekend ? 'Weekend afternoon exploring the web' : 'Afternoon at work — wrapping up the day?';
+            } else if (hour < 20) {
+                contextIcon = isMobile ? '\u{1F687}' : '\u{1F3E0}';
+                contextText = isMobile ? 'Evening commute or on the move' : 'Evening wind-down at home';
+            } else {
+                contextIcon = '\u{1F6CB}';
+                contextText = isMobile ? 'Couch scrolling before bed' : 'Late evening desktop browsing';
+            }
+            deds.push({ icon: contextIcon, text: contextText, confidence: isWeekend && (hour >= 10 && hour < 20) ? 75 : 65 });
+
             // ── Tab focus ──
             deds.push({ icon: document.hasFocus() ? '\u{1F440}' : '\u{1F634}',
-                text: document.hasFocus() ? 'Tab is focused \u{2014} you\'re watching' : 'Tab is in background',
+                text: document.hasFocus() ? 'Tab is focused — you\'re reading this right now' : 'Tab is in background — not paying attention',
                 confidence: 99 });
 
-            // ── Orientation ──
-            if (touch > 0) {
+            // ── Orientation (mobile) ──
+            if (isMobile) {
                 const portrait = window.innerHeight > window.innerWidth;
                 deds.push({ icon: portrait ? '\u{1F4F1}' : '\u{1F4F2}',
-                    text: `Holding device in ${portrait ? 'portrait' : 'landscape'}`,
+                    text: `Holding phone in ${portrait ? 'portrait' : 'landscape'} — ${portrait ? 'one-handed scrolling' : 'watching something?'}`,
                     confidence: 99 });
+            }
+
+            // ── Window size vs screen ──
+            const windowRatio = (window.innerWidth * window.innerHeight) / (w * h * dpr * dpr);
+            if (!isMobile && windowRatio < 0.4) {
+                deds.push({ icon: '\u{1F5BC}', text: 'Browser window is small — split-screening or multitasking', confidence: 85 });
+            } else if (!isMobile && window.innerWidth >= w * 0.95) {
+                deds.push({ icon: '\u{1F5A5}', text: 'Browser is maximized — fully focused', confidence: 80 });
             }
 
             // ── Battery deduction ──
@@ -1436,115 +1465,207 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             if (battVal && battVal !== '...' && battVal !== 'Not available') {
                 const pct = parseInt(battVal);
                 if (!isNaN(pct)) {
-                    if (pct < 15) deds.push({ icon: '\u{1FAA7}', text: 'Battery critically low \u{2014} living dangerously', confidence: 99 });
-                    else if (pct < 30) deds.push({ icon: '\u{1F50B}', text: 'Battery running low', confidence: 99 });
-                    if (battVal.includes('charging')) deds.push({ icon: '\u{26A1}', text: 'Device is plugged in', confidence: 99 });
+                    if (pct < 10) deds.push({ icon: '\u{1FAA7}', text: `Battery at ${pct}% — living on the edge`, confidence: 99 });
+                    else if (pct < 20) deds.push({ icon: '\u{1F50B}', text: `Battery at ${pct}% — find a charger soon`, confidence: 99 });
+                    else if (pct === 100 && battVal.includes('charging')) deds.push({ icon: '\u{26A1}', text: 'Fully charged and plugged in — stationary setup', confidence: 95 });
+                    else if (battVal.includes('charging')) deds.push({ icon: '\u{26A1}', text: `Charging at ${pct}% — device is plugged in`, confidence: 99 });
+                    else if (pct > 90) deds.push({ icon: '\u{1F50B}', text: `Battery healthy at ${pct}% — freshly unplugged`, confidence: 70 });
                 }
             }
 
-            // ── Network speed deduction ──
-            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            // ── Network ──
             if (conn) {
-                if (conn.effectiveType === '4g' && conn.downlink > 5) {
-                    deds.push({ icon: '\u{26A1}', text: 'Fast connection \u{2014} likely on WiFi or 5G', confidence: 75 });
-                } else if (conn.effectiveType === '3g' || conn.effectiveType === '2g') {
-                    deds.push({ icon: '\u{1F422}', text: 'Slow connection detected', confidence: 80 });
+                if (conn.effectiveType === '4g' && conn.downlink > 10) {
+                    deds.push({ icon: '\u{26A1}', text: `Fast connection (${conn.downlink} Mbps) — fiber or 5G`, confidence: 80 });
+                } else if (conn.effectiveType === '4g' && conn.downlink > 3) {
+                    deds.push({ icon: '\u{1F4F6}', text: `Decent connection (${conn.downlink} Mbps) — WiFi or LTE`, confidence: 70 });
+                } else if (conn.effectiveType === '3g') {
+                    deds.push({ icon: '\u{1F422}', text: 'Slow 3G connection — patience is a virtue', confidence: 85 });
+                } else if (conn.effectiveType === '2g') {
+                    deds.push({ icon: '\u{1F422}', text: 'Very slow 2G connection — are you in a tunnel?', confidence: 90 });
                 }
                 if (conn.saveData) {
-                    deds.push({ icon: '\u{1F4E5}', text: 'Data saver mode \u{2014} watching bandwidth', confidence: 95 });
+                    deds.push({ icon: '\u{1F4E5}', text: 'Data saver enabled — watching every byte', confidence: 95 });
                 }
             }
 
-            // ── Privacy score ──
+            // ── Privacy score (more detailed) ──
             let privacyScore = 0;
-            if (navigator.doNotTrack === '1') privacyScore += 20;
-            if (adBlock) privacyScore += 25;
-            if (incognito) privacyScore += 25;
-            const vpnCheck = info.location.value !== 'Blocked' ? detectVPN(tz, info.location.value) : { detected: false };
-            if (vpnCheck.detected) privacyScore += 20;
-            if (!navigator.cookieEnabled) privacyScore += 10;
+            const privacyReasons = [];
+            if (navigator.doNotTrack === '1') { privacyScore += 15; privacyReasons.push('DNT'); }
+            if (adBlock) { privacyScore += 25; privacyReasons.push('ad blocker'); }
+            if (incognito) { privacyScore += 20; privacyReasons.push('incognito'); }
+            if (vpnResult.detected) { privacyScore += 20; privacyReasons.push('VPN'); }
+            if (!navigator.cookieEnabled) { privacyScore += 10; privacyReasons.push('cookies off'); }
+            if (ua.includes('Firefox')) { privacyScore += 10; privacyReasons.push('Firefox'); }
             const privacyLabel = privacyScore >= 60 ? 'Privacy-conscious user'
-                : privacyScore >= 30 ? 'Some privacy measures active'
-                : 'Minimal privacy protections';
-            deds.push({ icon: '\u{1F512}', text: `${privacyLabel} (score: ${privacyScore}/100)`, confidence: 80 });
+                : privacyScore >= 30 ? 'Some privacy measures'
+                : 'Minimal privacy protection — wide open';
+            const reasonStr = privacyReasons.length > 0 ? ` (${privacyReasons.join(', ')})` : '';
+            deds.push({ icon: privacyScore >= 60 ? '\u{1F510}' : privacyScore >= 30 ? '\u{1F512}' : '\u{1F513}',
+                text: `${privacyLabel}${reasonStr}`, confidence: 85 });
 
-            // ── Unique fingerprint ──
-            deds.push({ icon: '\u{1F9EC}', text: `Your browser fingerprint is near-unique`, confidence: 92 });
+            // ── Fingerprint uniqueness ──
+            const fpEntropy = [
+                info.canvasHash.value, info.audioHash?.value, gpu,
+                `${w}x${h}@${dpr}`, cores, langs.join(','),
+                Intl.DateTimeFormat().resolvedOptions().timeZone,
+            ].filter(Boolean).join('|');
+            let fpHash = 0;
+            for (let i = 0; i < fpEntropy.length; i++) { fpHash = ((fpHash << 5) - fpHash) + fpEntropy.charCodeAt(i); fpHash |= 0; }
+            deds.push({ icon: '\u{1F9EC}', text: `Browser fingerprint: ${(fpHash >>> 0).toString(16).padStart(8, '0')} (near-unique across ~300K+ configs)`, confidence: 92 });
 
-            // ── Income bracket estimate ──
-            const tierLabel = info.gpu ? estimateDeviceTier(cores, mem, window.devicePixelRatio || 1, info.gpu.value, w, h).label : '';
-            if (tierLabel.includes('1,500+')) {
-                deds.push({ icon: '\u{1F4B8}', text: 'Estimated income: above average (premium hardware)', confidence: 45 });
-            } else if (tierLabel.includes('800')) {
-                deds.push({ icon: '\u{1F4B5}', text: 'Estimated income: average (solid mid-range setup)', confidence: 40 });
-            } else {
-                deds.push({ icon: '\u{1F4B2}', text: 'Estimated income: budget-conscious or student', confidence: 35 });
-            }
-
-            // ── Tech savviness score ──
+            // ── Tech savviness ──
             let techScore = 0;
-            if (adBlock) techScore += 20;
-            if (incognito) techScore += 15;
-            if (navigator.doNotTrack === '1') techScore += 10;
-            if (devSignals.isDev) techScore += 25;
-            if (cores >= 8) techScore += 10;
-            if (ua.includes('Firefox')) techScore += 10;  // Firefox = deliberate choice
+            if (adBlock) techScore += 15;
+            if (incognito) techScore += 10;
+            if (navigator.doNotTrack === '1') techScore += 5;
+            if (devSignals.isDev) techScore += 30;
+            if (cores >= 8) techScore += 5;
+            if (cores >= 16) techScore += 10;
+            if (ua.includes('Firefox')) techScore += 10;
             if (ua.includes('Linux') && !ua.includes('Android')) techScore += 15;
-            const vpnForTech = info.location.value !== 'Blocked' ? detectVPN(Intl.DateTimeFormat().resolvedOptions().timeZone, info.location.value) : { detected: false };
-            if (vpnForTech.detected) techScore += 15;
-            const techLabel = techScore >= 60 ? 'Power user / tech enthusiast'
-                : techScore >= 35 ? 'Above average tech literacy'
-                : techScore >= 15 ? 'Average user'
-                : 'Casual user';
-            deds.push({ icon: '\u{1F9E0}', text: `Tech savviness: ${techLabel} (${Math.min(techScore, 100)}/100)`, confidence: 55 });
-
-            // ── Age range guess ──
-            const langStr = (navigator.languages || []).join(',');
-            let ageGuess = '';
-            if (touch > 0 && w < 500) {
-                if (hour >= 22 || hour < 5) ageGuess = '16–30 (mobile late-night browsing pattern)';
-                else ageGuess = '18–40 (mobile user)';
-            } else if (cores >= 12 && mem >= 16) {
-                ageGuess = '25–45 (workstation-class hardware)';
-            } else if (ua.includes('Firefox') || (adBlock && navigator.doNotTrack === '1')) {
-                ageGuess = '25–45 (privacy-aware choices suggest experience)';
-            } else {
-                ageGuess = '20–50 (insufficient signals for precision)';
-            }
-            deds.push({ icon: '\u{1F382}', text: `Age range guess: ${ageGuess}`, confidence: 25 });
+            if (vpnResult.detected) techScore += 10;
+            if (mem >= 8) techScore += 5;
+            if (dpr >= 2 && !isMobile) techScore += 5; // retina desktop = deliberate choice
+            techScore = Math.min(techScore, 100);
+            const techLabel = techScore >= 70 ? 'Power user'
+                : techScore >= 45 ? 'Tech-savvy'
+                : techScore >= 20 ? 'Average'
+                : 'Casual';
+            deds.push({ icon: '\u{1F9E0}', text: `Tech literacy: ${techLabel} (${techScore}/100)`, confidence: 60 });
 
             // ── Likely profession ──
-            let profession = '';
+            let professions = [];
             if (devSignals.isDev) {
-                if (cores >= 12 && mem >= 16) profession = 'Software engineer (senior/infra)';
-                else profession = 'Developer / engineer';
-            } else if (ua.includes('Macintosh') && (w >= 1440 || dpr >= 2)) {
-                profession = 'Creative professional or knowledge worker';
-            } else if (touch > 0 && w < 500) {
-                profession = 'Mobile-first user (student, social media, or casual)';
-            } else if (ua.includes('Windows') && cores >= 8) {
-                profession = 'Office worker or gamer';
-            } else {
-                profession = 'General user';
+                if (cores >= 16 || mem >= 32) professions.push('Senior engineer / DevOps');
+                else if (gpu.toLowerCase().includes('apple') && dpr >= 2) professions.push('Software developer (Mac)');
+                else professions.push('Developer / engineer');
             }
-            deds.push({ icon: '\u{1F4BC}', text: `Likely role: ${profession}`, confidence: 35 });
+            if (ua.includes('Macintosh') && dpr >= 2 && screen.colorDepth >= 30) professions.push('Designer / creative');
+            if (!isMobile && cores >= 8 && gpu.toLowerCase().includes('rtx')) professions.push('Gamer or 3D artist');
+            if (ua.includes('Macintosh') && !devSignals.isDev && w >= 1440) professions.push('Knowledge worker');
+            if (isMobile && hour >= 9 && hour < 17 && !isWeekend) professions.push('On-the-go professional');
+            if (professions.length === 0) professions.push('General user');
+            deds.push({ icon: '\u{1F4BC}', text: `Likely role: ${professions[0]}`, confidence: professions.length > 1 ? 50 : 35 });
 
-            // ── Screen fatigue ──
-            const brightness = screen.colorDepth >= 30 ? 'high color depth (likely calibrated display)' : 'standard display';
-            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            // ── Age range (improved signals) ──
+            let ageMin = 15, ageMax = 65;
+            if (isMobile && (hour >= 22 || hour < 4)) { ageMin = 16; ageMax = 28; }
+            else if (isMobile) { ageMax = 45; }
+            if (devSignals.isDev) { ageMin = Math.max(ageMin, 20); ageMax = Math.min(ageMax, 50); }
+            if (cores >= 16) { ageMin = Math.max(ageMin, 25); }
+            if (adBlock && navigator.doNotTrack === '1') { ageMin = Math.max(ageMin, 25); ageMax = Math.min(ageMax, 50); }
+            if (ua.includes('Firefox')) { ageMin = Math.max(ageMin, 22); }
+            if (reducedMotion) { ageMin = Math.max(ageMin, 35); }
+            if (langs.length > 2) { ageMin = Math.max(ageMin, 22); ageMax = Math.min(ageMax, 55); }
+            deds.push({ icon: '\u{1F382}', text: `Age estimate: ${ageMin}\u{2013}${ageMax}`, confidence: (ageMax - ageMin) < 20 ? 45 : 25 });
+
+            // ── Screen setup ──
+            if (screen.isExtended) {
+                deds.push({ icon: '\u{1F5A5}', text: 'Multi-monitor setup detected — power user workstation', confidence: 90 });
+            }
+            if (!isMobile && dpr >= 2 && w >= 2560) {
+                deds.push({ icon: '\u{2728}', text: 'High-res retina display — you appreciate the details', confidence: 85 });
+            }
+            if (info.displayCaps && info.displayCaps.value.includes('HDR')) {
+                deds.push({ icon: '\u{1F308}', text: 'HDR display — watching premium content?', confidence: 80 });
+            }
+
+            // ── Dark mode / eye comfort ──
             if (darkMode && reducedMotion) {
-                deds.push({ icon: '\u{1F60E}', text: 'Screen fatigue settings active (dark mode + reduced motion)', confidence: 80 });
-            } else if (darkMode && hour >= 20) {
-                deds.push({ icon: '\u{1F319}', text: 'Night browsing with dark mode — protecting your eyes', confidence: 70 });
+                deds.push({ icon: '\u{1F60E}', text: 'Dark mode + reduced motion — seasoned screen veteran', confidence: 85 });
+            } else if (darkMode) {
+                if (hour >= 20 || hour < 6) deds.push({ icon: '\u{1F319}', text: 'Dark mode active — easy on the eyes at night', confidence: 80 });
+                else deds.push({ icon: '\u{1F311}', text: 'Dark mode by day — a person of culture', confidence: 75 });
+            } else {
+                deds.push({ icon: '\u{2600}', text: 'Light mode user — bold choice', confidence: 70 });
             }
 
-            // ── Returning visitor deduction ──
+            // ── Language / locale insights ──
+            if (langs.length > 2) {
+                deds.push({ icon: '\u{1F30D}', text: `Multilingual (${langs.length} languages configured) — world traveler?`, confidence: 80 });
+            } else if (langs.length === 2) {
+                deds.push({ icon: '\u{1F30D}', text: `Bilingual browser (${langs.join(', ')})`, confidence: 75 });
+            }
+            // Timezone vs expected locale
+            if (tz.startsWith('Asia/') && langs[0]?.startsWith('en')) {
+                deds.push({ icon: '\u{2708}', text: 'English speaker in Asia — expat or traveler?', confidence: 50 });
+            } else if (tz.startsWith('America/') && !langs[0]?.startsWith('en') && !langs[0]?.startsWith('es') && !langs[0]?.startsWith('pt') && !langs[0]?.startsWith('fr')) {
+                deds.push({ icon: '\u{2708}', text: 'Non-native language in the Americas — immigrant or traveler?', confidence: 45 });
+            }
+
+            // ── Font analysis ──
+            const fontVal = info.fonts?.value || '';
+            if (fontVal.includes('Fira Code') || fontVal.includes('Monaco') || fontVal.includes('Consolas') || fontVal.includes('Menlo')) {
+                deds.push({ icon: '\u{1F4DD}', text: 'Developer fonts installed (monospace enthusiast)', confidence: 80 });
+            }
+            if (fontVal.includes('Futura') || fontVal.includes('Helvetica')) {
+                if (!devSignals.isDev) deds.push({ icon: '\u{1F3A8}', text: 'Design fonts detected — creative background?', confidence: 55 });
+            }
+
+            // ── Media devices ──
+            const mediaVal = info.mediaDevices?.value || '';
+            const camMatch = mediaVal.match(/(\d+) cam/);
+            const micMatch = mediaVal.match(/(\d+) mic/);
+            if (camMatch && parseInt(camMatch[1]) > 1) {
+                deds.push({ icon: '\u{1F4F7}', text: `${camMatch[1]} cameras detected — external webcam or streaming setup`, confidence: 75 });
+            }
+            if (micMatch && parseInt(micMatch[1]) > 2) {
+                deds.push({ icon: '\u{1F3A4}', text: `${micMatch[1]} microphones — podcaster, musician, or meeting junkie?`, confidence: 65 });
+            }
+
+            // ── Gamepad ──
+            if (info.gamepad?.value && info.gamepad.value !== 'None' && info.gamepad.value !== 'Not supported') {
+                deds.push({ icon: '\u{1F3AE}', text: `Game controller connected (${info.gamepad.value.substring(0, 40)})`, confidence: 95 });
+            }
+
+            // ── Session behavior ──
+            const sessionSec = parseFloat(info.sessionTime?.value) || 0;
+            if (sessionSec > 30) {
+                deds.push({ icon: '\u{23F1}', text: `Been here ${Math.round(sessionSec)}s — you\'re thorough`, confidence: 95 });
+            } else if (sessionSec > 10) {
+                deds.push({ icon: '\u{23F1}', text: `${Math.round(sessionSec)}s on page — curious one`, confidence: 90 });
+            }
+
+            // ── Returning visitor ──
             const visitVal = info.returning ? info.returning.value : '';
             if (visitVal.includes('Returning')) {
                 const visitNum = parseInt(visitVal.match(/\d+/)?.[0] || '2');
-                if (visitNum >= 5) deds.push({ icon: '\u{2B50}', text: `Frequent visitor (${visitNum} visits) — you keep coming back`, confidence: 95 });
+                if (visitNum >= 10) deds.push({ icon: '\u{1F451}', text: `Visit #${visitNum} — at this point we're friends`, confidence: 99 });
+                else if (visitNum >= 5) deds.push({ icon: '\u{2B50}', text: `Visit #${visitNum} — you keep coming back`, confidence: 95 });
                 else if (visitNum >= 2) deds.push({ icon: '\u{1F44B}', text: `Welcome back! Visit #${visitNum}`, confidence: 95 });
+            } else if (visitVal === 'First visit') {
+                deds.push({ icon: '\u{1F44B}', text: 'First time here — welcome!', confidence: 99 });
+            }
+
+            // ── Referrer insight ──
+            const ref = info.referrer?.value || '';
+            if (ref.includes('google') || ref.includes('bing') || ref.includes('duckduckgo')) {
+                deds.push({ icon: '\u{1F50D}', text: 'Found this site via search engine', confidence: 90 });
+            } else if (ref.includes('linkedin')) {
+                deds.push({ icon: '\u{1F4BC}', text: 'Came from LinkedIn — checking me out professionally?', confidence: 90 });
+            } else if (ref.includes('github')) {
+                deds.push({ icon: '\u{1F4BB}', text: 'Came from GitHub — fellow developer', confidence: 85 });
+            } else if (ref.includes('twitter') || ref.includes('x.com')) {
+                deds.push({ icon: '\u{1F426}', text: 'Arrived from X/Twitter', confidence: 90 });
+            } else if (ref === 'Direct visit') {
+                deds.push({ icon: '\u{1F3AF}', text: 'Direct visit — typed the URL or bookmarked', confidence: 80 });
+            }
+
+            // ── Storage usage insight ──
+            const storageVal = info.storage?.value || '';
+            const usedMatch = storageVal.match(/([\d.]+) MB used/);
+            if (usedMatch) {
+                const usedMB = parseFloat(usedMatch[1]);
+                if (usedMB > 500) deds.push({ icon: '\u{1F4E6}', text: `${Math.round(usedMB)} MB of browser storage used — heavy web app user`, confidence: 75 });
+            }
+
+            // ── Service workers ──
+            const swVal = info.sw?.value || '';
+            const swMatch = swVal.match(/(\d+) registered/);
+            if (swMatch && parseInt(swMatch[1]) > 3) {
+                deds.push({ icon: '\u{2699}', text: `${swMatch[1]} service workers — lots of web apps installed`, confidence: 80 });
             }
 
             return deds;
