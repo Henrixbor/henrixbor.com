@@ -464,6 +464,54 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             opacity: 0.5;
         }
 
+        /* Deductions section */
+        .deductions-section {
+            padding: 0.6rem 0 0.3rem;
+            border-top: 1px solid #a78bfa22;
+        }
+        .deductions-label {
+            color: #c4b5fd;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .deductions-label::before {
+            content: '>';
+            opacity: 0.5;
+        }
+        .deduction {
+            padding: 0.2rem 0 0.2rem 0.85rem;
+            color: var(--text);
+            opacity: 0;
+            transition: opacity 0.4s;
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        .deduction.revealed { opacity: 1; }
+        .deduction.scanning {
+            color: #a78bfa;
+            opacity: 0.4;
+        }
+        .deduction-icon {
+            flex-shrink: 0;
+            font-size: 0.55rem;
+            opacity: 0.6;
+        }
+        .deduction-text {
+            flex: 1;
+        }
+        .deduction-confidence {
+            color: var(--text-tertiary);
+            font-size: 0.55rem;
+            flex-shrink: 0;
+        }
+
         .modal-footer {
             padding: 0.5rem 1rem;
             border-top: 1px solid #1e1e28;
@@ -1070,14 +1118,332 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 }
             } catch { info.battery.value = 'Not available'; }
 
-            // Staggered reveal
+            // Staggered reveal for raw data
             for (let i = 0; i < allVals.length; i++) {
-                await delay(60 + Math.random() * 40);
+                await delay(50 + Math.random() * 30);
                 const { el, key } = allVals[i];
                 el.textContent = String(info[key].value);
                 el.classList.remove('scanning');
                 el.classList.add('revealed');
             }
+
+            // ── Run deductions engine ──
+            await delay(300);
+            const deductions = buildDeductions(info, ua);
+
+            const dedSection = document.createElement('div');
+            dedSection.className = 'deductions-section';
+            dedSection.innerHTML = '<div class="deductions-label">Analysis</div>';
+            body.appendChild(dedSection);
+
+            for (const ded of deductions) {
+                const row = document.createElement('div');
+                row.className = 'deduction scanning';
+                row.innerHTML = `<span class="deduction-icon">${ded.icon}</span><span class="deduction-text">analyzing...</span><span class="deduction-confidence"></span>`;
+                dedSection.appendChild(row);
+                await delay(120 + Math.random() * 80);
+                row.querySelector('.deduction-text').textContent = ded.text;
+                row.querySelector('.deduction-confidence').textContent = ded.confidence ? `${ded.confidence}%` : '';
+                row.classList.remove('scanning');
+                row.classList.add('revealed');
+            }
+        }
+
+        // ── Deductions Engine ──
+        function buildDeductions(info, ua) {
+            const deds = [];
+            const w = screen.width, h = screen.height;
+            const dpr = window.devicePixelRatio || 1;
+            const gpu = info.gpu.value;
+            const cores = navigator.hardwareConcurrency || 0;
+            const mem = navigator.deviceMemory || 0;
+            const touch = navigator.maxTouchPoints;
+
+            // ── Device identification ──
+            const device = identifyDevice(w, h, dpr, gpu, ua, touch);
+            if (device) deds.push({ icon: '\u{1F4F1}', text: `Likely device: ${device.name}`, confidence: device.confidence });
+
+            // ── Device tier / price ──
+            const tier = estimateDeviceTier(cores, mem, dpr, gpu, w, h);
+            deds.push({ icon: '\u{1F4B0}', text: `Device tier: ${tier.label}`, confidence: tier.confidence });
+
+            // ── VPN detection ──
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const ipLocation = info.location.value;
+            if (ipLocation && ipLocation !== 'Blocked' && ipLocation !== '...') {
+                const vpn = detectVPN(tz, ipLocation);
+                if (vpn.detected) {
+                    deds.push({ icon: '\u{1F6E1}', text: 'VPN or proxy likely active', confidence: vpn.confidence });
+                }
+            }
+
+            // ── Incognito detection ──
+            const incognito = detectIncognito();
+            if (incognito) deds.push({ icon: '\u{1F576}', text: 'Private/incognito mode detected', confidence: 70 });
+
+            // ── Ad blocker ──
+            const adBlock = detectAdBlocker();
+            deds.push({ icon: adBlock ? '\u{1F6AB}' : '\u{1F4E2}', text: adBlock ? 'Ad blocker detected' : 'No ad blocker detected', confidence: adBlock ? 85 : 60 });
+
+            // ── Developer detection ──
+            const devSignals = detectDeveloper(ua, gpu);
+            if (devSignals.isDev) {
+                deds.push({ icon: '\u{1F468}\u{200D}\u{1F4BB}', text: `Likely a developer (${devSignals.reason})`, confidence: devSignals.confidence });
+            }
+
+            // ── Time-of-day personality ──
+            const hour = new Date().getHours();
+            const timeLabel = hour < 5 ? 'Night owl \u{2014} browsing past midnight'
+                : hour < 7 ? 'Very early riser'
+                : hour < 9 ? 'Morning person'
+                : hour < 12 ? 'Mid-morning browser'
+                : hour < 14 ? 'Lunch break browsing'
+                : hour < 17 ? 'Afternoon browser'
+                : hour < 20 ? 'Evening browser'
+                : hour < 23 ? 'Late evening browser'
+                : 'Night owl \u{2014} browsing past 11 PM';
+            deds.push({ icon: '\u{1F553}', text: timeLabel, confidence: 95 });
+
+            // ── Browsing context ──
+            const context = inferContext(hour, info.connection.value, touch);
+            deds.push({ icon: context.icon, text: `Likely browsing from ${context.where}`, confidence: context.confidence });
+
+            // ── Bot detection ──
+            const botScore = detectBot(ua);
+            if (botScore.isBot) {
+                deds.push({ icon: '\u{1F916}', text: `Automated browser detected (${botScore.reason})`, confidence: botScore.confidence });
+            }
+
+            // ── Tab focus ──
+            deds.push({ icon: document.hasFocus() ? '\u{1F440}' : '\u{1F634}',
+                text: document.hasFocus() ? 'Tab is focused \u{2014} you\'re watching' : 'Tab is in background',
+                confidence: 99 });
+
+            // ── Orientation ──
+            if (touch > 0) {
+                const portrait = window.innerHeight > window.innerWidth;
+                deds.push({ icon: portrait ? '\u{1F4F1}' : '\u{1F4F2}',
+                    text: `Holding device in ${portrait ? 'portrait' : 'landscape'}`,
+                    confidence: 99 });
+            }
+
+            // ── Battery deduction ──
+            const battVal = info.battery.value;
+            if (battVal && battVal !== '...' && battVal !== 'Not available') {
+                const pct = parseInt(battVal);
+                if (!isNaN(pct)) {
+                    if (pct < 15) deds.push({ icon: '\u{1FAA7}', text: 'Battery critically low \u{2014} living dangerously', confidence: 99 });
+                    else if (pct < 30) deds.push({ icon: '\u{1F50B}', text: 'Battery running low', confidence: 99 });
+                    if (battVal.includes('charging')) deds.push({ icon: '\u{26A1}', text: 'Device is plugged in', confidence: 99 });
+                }
+            }
+
+            // ── Network speed deduction ──
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                if (conn.effectiveType === '4g' && conn.downlink > 5) {
+                    deds.push({ icon: '\u{26A1}', text: 'Fast connection \u{2014} likely on WiFi or 5G', confidence: 75 });
+                } else if (conn.effectiveType === '3g' || conn.effectiveType === '2g') {
+                    deds.push({ icon: '\u{1F422}', text: 'Slow connection detected', confidence: 80 });
+                }
+                if (conn.saveData) {
+                    deds.push({ icon: '\u{1F4E5}', text: 'Data saver mode \u{2014} watching bandwidth', confidence: 95 });
+                }
+            }
+
+            // ── Privacy score ──
+            let privacyScore = 0;
+            if (navigator.doNotTrack === '1') privacyScore += 20;
+            if (adBlock) privacyScore += 25;
+            if (incognito) privacyScore += 25;
+            const vpnCheck = info.location.value !== 'Blocked' ? detectVPN(tz, info.location.value) : { detected: false };
+            if (vpnCheck.detected) privacyScore += 20;
+            if (!navigator.cookieEnabled) privacyScore += 10;
+            const privacyLabel = privacyScore >= 60 ? 'Privacy-conscious user'
+                : privacyScore >= 30 ? 'Some privacy measures active'
+                : 'Minimal privacy protections';
+            deds.push({ icon: '\u{1F512}', text: `${privacyLabel} (score: ${privacyScore}/100)`, confidence: 80 });
+
+            // ── Unique fingerprint ──
+            const fpHash = info.canvasHash.value;
+            deds.push({ icon: '\u{1F9EC}', text: `Your browser fingerprint is near-unique`, confidence: 92 });
+
+            return deds;
+        }
+
+        // ── Device identification database ──
+        function identifyDevice(w, h, dpr, gpu, ua, touch) {
+            const sw = Math.min(w, h), sh = Math.max(w, h);
+            const gpuLow = gpu.toLowerCase();
+
+            // iPhones
+            if (ua.includes('iPhone')) {
+                if (sw === 393 && sh === 852) return { name: 'iPhone 15 / 15 Pro', confidence: 90 };
+                if (sw === 430 && sh === 932) return { name: 'iPhone 15 Plus / 15 Pro Max', confidence: 90 };
+                if (sw === 390 && sh === 844) return { name: 'iPhone 13 / 14', confidence: 85 };
+                if (sw === 428 && sh === 926) return { name: 'iPhone 13/14 Pro Max', confidence: 85 };
+                if (sw === 375 && sh === 812) return { name: 'iPhone X / 11 Pro / 12 Mini', confidence: 75 };
+                if (sw === 414 && sh === 896) return { name: 'iPhone 11 / XR / 11 Pro Max', confidence: 75 };
+                return { name: 'iPhone (model unclear)', confidence: 60 };
+            }
+            // iPads
+            if (ua.includes('iPad') || (ua.includes('Macintosh') && touch > 0)) {
+                if (sw === 1024 && sh === 1366) return { name: 'iPad Pro 12.9"', confidence: 85 };
+                if (sw === 834 && sh === 1194) return { name: 'iPad Pro 11"', confidence: 85 };
+                if (sw === 820 && sh === 1180) return { name: 'iPad Air', confidence: 80 };
+                if (sw === 810 && sh === 1080) return { name: 'iPad 10th gen', confidence: 80 };
+                return { name: 'iPad', confidence: 65 };
+            }
+            // Macs
+            if (ua.includes('Macintosh') && touch === 0) {
+                if (gpuLow.includes('m1') || gpuLow.includes('m2') || gpuLow.includes('m3') || gpuLow.includes('m4') || gpuLow.includes('apple')) {
+                    if (sh >= 1800 && dpr >= 2) return { name: 'MacBook Pro 16" (Apple Silicon)', confidence: 80 };
+                    if (sh >= 1600 && dpr >= 2) return { name: 'MacBook Pro 14" (Apple Silicon)', confidence: 75 };
+                    if (sh <= 900 && dpr >= 2) return { name: 'MacBook Air 13" (Apple Silicon)', confidence: 75 };
+                    return { name: 'Mac (Apple Silicon)', confidence: 70 };
+                }
+                if (gpuLow.includes('intel')) return { name: 'Mac (Intel)', confidence: 65 };
+                return { name: 'Mac', confidence: 55 };
+            }
+            // Android
+            if (ua.includes('Android')) {
+                if (gpuLow.includes('adreno 7')) return { name: 'Android flagship (Snapdragon 8)', confidence: 70 };
+                if (gpuLow.includes('adreno 6')) return { name: 'Android mid-range (Snapdragon 7/6)', confidence: 65 };
+                if (gpuLow.includes('mali-g7')) return { name: 'Android flagship (Exynos/Dimensity)', confidence: 65 };
+                return { name: 'Android device', confidence: 50 };
+            }
+            // Windows
+            if (ua.includes('Windows')) {
+                if (gpuLow.includes('rtx 40')) return { name: 'Windows PC (RTX 40-series GPU)', confidence: 80 };
+                if (gpuLow.includes('rtx 30')) return { name: 'Windows PC (RTX 30-series GPU)', confidence: 80 };
+                if (gpuLow.includes('rtx')) return { name: 'Windows PC (RTX GPU)', confidence: 75 };
+                if (gpuLow.includes('gtx')) return { name: 'Windows PC (GTX GPU)', confidence: 75 };
+                if (gpuLow.includes('radeon')) return { name: 'Windows PC (AMD GPU)', confidence: 70 };
+                if (gpuLow.includes('intel') && gpuLow.includes('iris')) return { name: 'Windows laptop (Intel Iris)', confidence: 70 };
+                if (gpuLow.includes('intel')) return { name: 'Windows PC (Intel graphics)', confidence: 60 };
+                return { name: 'Windows PC', confidence: 50 };
+            }
+            if (ua.includes('Linux')) return { name: 'Linux machine', confidence: 55 };
+            return null;
+        }
+
+        // ── Device tier estimation ──
+        function estimateDeviceTier(cores, mem, dpr, gpu, w, h) {
+            let score = 0;
+            const gpuLow = gpu.toLowerCase();
+            if (cores >= 16) score += 30; else if (cores >= 8) score += 20; else if (cores >= 4) score += 10;
+            if (mem >= 8) score += 25; else if (mem >= 4) score += 15; else if (mem > 0) score += 5;
+            if (dpr >= 3) score += 15; else if (dpr >= 2) score += 10;
+            if (gpuLow.includes('rtx 40') || gpuLow.includes('m3') || gpuLow.includes('m4')) score += 25;
+            else if (gpuLow.includes('rtx 30') || gpuLow.includes('m2') || gpuLow.includes('apple')) score += 20;
+            else if (gpuLow.includes('rtx') || gpuLow.includes('m1')) score += 15;
+            if (Math.max(w, h) >= 2560) score += 5;
+
+            if (score >= 60) return { label: 'Flagship / high-end ($1,500+)', confidence: 70 };
+            if (score >= 40) return { label: 'Upper mid-range ($800\u{2013}1,500)', confidence: 65 };
+            if (score >= 20) return { label: 'Mid-range ($400\u{2013}800)', confidence: 60 };
+            return { label: 'Budget / entry-level (<$400)', confidence: 55 };
+        }
+
+        // ── VPN detection via timezone mismatch ──
+        function detectVPN(tz, locationStr) {
+            const tzCountryMap = {
+                'America/New_York': 'United States', 'America/Chicago': 'United States',
+                'America/Denver': 'United States', 'America/Los_Angeles': 'United States',
+                'Europe/London': 'United Kingdom', 'Europe/Paris': 'France',
+                'Europe/Berlin': 'Germany', 'Europe/Helsinki': 'Finland',
+                'Europe/Stockholm': 'Sweden', 'Europe/Oslo': 'Norway',
+                'Europe/Copenhagen': 'Denmark', 'Europe/Amsterdam': 'Netherlands',
+                'Asia/Tokyo': 'Japan', 'Asia/Shanghai': 'China',
+                'Asia/Kolkata': 'India', 'Australia/Sydney': 'Australia',
+                'America/Toronto': 'Canada', 'America/Sao_Paulo': 'Brazil',
+            };
+            const expectedCountry = tzCountryMap[tz];
+            if (!expectedCountry) return { detected: false };
+            const locLower = locationStr.toLowerCase();
+            if (!locLower.includes(expectedCountry.toLowerCase())) {
+                return { detected: true, confidence: 75 };
+            }
+            return { detected: false };
+        }
+
+        // ── Incognito detection ──
+        function detectIncognito() {
+            try {
+                // Safari: reduced storage in private mode
+                if (window.safari) {
+                    try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); }
+                    catch { return true; }
+                }
+                // Firefox: indexedDB unavailable in private
+                if (navigator.userAgent.includes('Firefox')) {
+                    try {
+                        const db = indexedDB.open('_t');
+                        db.onerror = () => true;
+                    } catch { return true; }
+                }
+                // Chrome: reduced storage quota in incognito
+                if (navigator.storage && navigator.storage.estimate) {
+                    // Can't await here synchronously, so skip for now
+                }
+            } catch {}
+            return false;
+        }
+
+        // ── Ad blocker detection ──
+        function detectAdBlocker() {
+            const el = document.createElement('div');
+            el.className = 'ad ads adsbox ad-placement doubleclick';
+            el.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
+            document.body.appendChild(el);
+            const blocked = el.offsetHeight === 0 || el.offsetWidth === 0 || getComputedStyle(el).display === 'none';
+            document.body.removeChild(el);
+            return blocked;
+        }
+
+        // ── Developer detection ──
+        function detectDeveloper(ua, gpu) {
+            const reasons = [];
+            // DevTools size heuristic (viewport vs window outer)
+            if (window.outerWidth - window.innerWidth > 160 || window.outerHeight - window.innerHeight > 200) {
+                reasons.push('DevTools likely open');
+            }
+            // macOS + many CPU cores + dev browser
+            if (ua.includes('Macintosh') && navigator.hardwareConcurrency >= 8) {
+                if (ua.includes('Chrome') || ua.includes('Firefox')) reasons.push('power setup');
+            }
+            // Linux desktop user
+            if (ua.includes('Linux') && !ua.includes('Android')) reasons.push('Linux desktop');
+            // High core count
+            if (navigator.hardwareConcurrency >= 12) reasons.push('high-core CPU');
+
+            if (reasons.length > 0) {
+                return { isDev: true, reason: reasons.join(', '), confidence: Math.min(85, 50 + reasons.length * 15) };
+            }
+            return { isDev: false };
+        }
+
+        // ── Bot detection ──
+        function detectBot(ua) {
+            if (navigator.webdriver) return { isBot: true, reason: 'webdriver flag', confidence: 95 };
+            if (!window.chrome && ua.includes('Chrome')) return { isBot: true, reason: 'headless Chrome', confidence: 80 };
+            if (ua.includes('HeadlessChrome')) return { isBot: true, reason: 'HeadlessChrome', confidence: 99 };
+            if (ua.includes('PhantomJS')) return { isBot: true, reason: 'PhantomJS', confidence: 99 };
+            if (ua.includes('bot') || ua.includes('crawler') || ua.includes('spider')) return { isBot: true, reason: 'bot UA', confidence: 90 };
+            return { isBot: false };
+        }
+
+        // ── Browsing context inference ──
+        function inferContext(hour, connStr, touch) {
+            const isWifi = connStr.includes('4g') && !connStr.includes('0.') || connStr.includes('Mbps');
+            if (touch > 0) {
+                if (hour >= 22 || hour < 6) return { icon: '\u{1F6CF}', where: 'bed', confidence: 70 };
+                if (hour >= 7 && hour < 9) return { icon: '\u{1F687}', where: 'commute', confidence: 55 };
+                if (hour >= 17 && hour < 19) return { icon: '\u{1F687}', where: 'commute', confidence: 50 };
+                return { icon: '\u{1F4F1}', where: 'mobile', confidence: 60 };
+            }
+            if (hour >= 9 && hour < 17) return { icon: '\u{1F3E2}', where: 'work', confidence: 60 };
+            return { icon: '\u{1F3E0}', where: 'home', confidence: 55 };
         }
 
         function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
