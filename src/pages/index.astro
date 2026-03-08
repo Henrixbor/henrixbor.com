@@ -372,9 +372,9 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             opacity: 0.7;
         }
         /* No separate overlay — darkening applied via content layer background */
-        /* Clean grey tiles — no hue shift */
+        /* Tint map lines purple, keep dark background */
         .modal-map .leaflet-tile-pane {
-            filter: brightness(0.5) saturate(0.2);
+            filter: brightness(0.7) saturate(0.4) hue-rotate(40deg);
         }
         /* Hide Leaflet controls & attribution */
         .modal-map .leaflet-control-container { display: none; }
@@ -1110,6 +1110,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             const gpsDot = document.getElementById('mapGpsDot');
             if (mapEl) mapEl.classList.remove('visible');
             if (gpsDot) gpsDot.classList.remove('visible');
+            if (mapAnimFrame) { cancelAnimationFrame(mapAnimFrame); mapAnimFrame = null; }
             if (modalMapInstance) { modalMapInstance.remove(); modalMapInstance = null; }
         }
         closeBtn.addEventListener('click', close);
@@ -1774,8 +1775,10 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
 
         // ── Map initialization ──
         let modalMapInstance = null;
+        let mapAnimFrame = null;
         function initModalMap(lat, lon) {
             const mapEl = document.getElementById('modalMap');
+            const gpsDot = document.getElementById('mapGpsDot');
             if (!mapEl || !window.L) return;
 
             // Clean up previous instance
@@ -1783,11 +1786,17 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 modalMapInstance.remove();
                 modalMapInstance = null;
             }
+            if (mapAnimFrame) { cancelAnimationFrame(mapAnimFrame); mapAnimFrame = null; }
 
-            // Default to world center if no coords
             const hasCoords = lat != null && lon != null && isFinite(lat) && isFinite(lon);
             const startLat = hasCoords ? lat : 30;
             const startLon = hasCoords ? lon : 0;
+
+            // Reset map container (Leaflet needs a clean container)
+            mapEl.innerHTML = '';
+            mapEl.style.removeProperty('position');
+            mapEl.classList.remove('visible');
+            if (gpsDot) gpsDot.classList.remove('visible');
 
             const map = L.map(mapEl, {
                 zoomControl: false,
@@ -1800,37 +1809,48 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 boxZoom: false,
             }).setView([startLat, startLon], 3);
 
-            // Dark map tiles (CartoDB Dark Matter)
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+            // CartoDB Dark Matter WITH labels (roads, borders, city names)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 maxZoom: 18,
+                subdomains: 'abcd',
             }).addTo(map);
 
             modalMapInstance = map;
-            const gpsDot = document.getElementById('mapGpsDot');
 
+            // Continuously sync GPS dot position to map coordinates
             function syncDot() {
-                if (!gpsDot || !hasCoords) return;
+                if (!gpsDot || !hasCoords || !modalMapInstance) return;
                 const pt = map.latLngToContainerPoint([lat, lon]);
                 gpsDot.style.left = pt.x + 'px';
                 gpsDot.style.top = pt.y + 'px';
+                mapAnimFrame = requestAnimationFrame(syncDot);
             }
 
-            map.on('move zoom moveend zoomend', syncDot);
-
-            // Force Leaflet to recalculate size after modal is visible
+            // Start after layout settles
             setTimeout(() => {
                 map.invalidateSize();
                 mapEl.classList.add('visible');
 
                 if (hasCoords) {
-                    syncDot();
-                    // Show dot, then fly to location
+                    syncDot(); // start tracking dot position
+                    gpsDot.classList.add('visible');
+                    // Fly to location after brief pause
                     setTimeout(() => {
-                        gpsDot.classList.add('visible');
+                        map.invalidateSize();
                         map.flyTo([lat, lon], 11, { duration: 3, easeLinearity: 0.2 });
-                    }, 500);
+                        // Stop rAF loop after fly animation ends
+                        setTimeout(() => {
+                            if (mapAnimFrame) { cancelAnimationFrame(mapAnimFrame); mapAnimFrame = null; }
+                            // Final sync
+                            if (gpsDot && modalMapInstance) {
+                                const pt = map.latLngToContainerPoint([lat, lon]);
+                                gpsDot.style.left = pt.x + 'px';
+                                gpsDot.style.top = pt.y + 'px';
+                            }
+                        }, 3500);
+                    }, 400);
                 }
-            }, 200);
+            }, 300);
         }
 
         // ── Audio fingerprint ──
