@@ -371,28 +371,23 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         .modal-map.visible {
             opacity: 0.7;
         }
-        /* Purple-tinted dark overlay + scanlines over map — below marker pane */
-        .modal-map::after {
-            content: '';
+        /* Dark overlay over map tiles but under the content */
+        .modal-map-overlay {
             position: absolute;
             inset: 0;
-            z-index: 450; /* above tiles (200) but below markers (600+) */
+            z-index: 1;
             background:
-                linear-gradient(180deg, rgba(12,10,20,0.93) 0%, rgba(16,12,28,0.78) 35%, rgba(12,10,20,0.88) 100%),
-                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(167,139,250,0.02) 2px, rgba(167,139,250,0.02) 4px);
+                linear-gradient(180deg, rgba(8,8,10,0.92) 0%, rgba(8,8,10,0.72) 35%, rgba(8,8,10,0.88) 100%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 4px);
             pointer-events: none;
+            border-radius: 12px;
         }
-        /* Purple tint on tiles themselves */
+        /* Clean grey tiles — no hue shift */
         .modal-map .leaflet-tile-pane {
-            filter: brightness(0.6) saturate(0.3) sepia(0.15) hue-rotate(220deg);
+            filter: brightness(0.5) saturate(0.2);
         }
         /* Hide Leaflet controls & attribution */
         .modal-map .leaflet-control-container { display: none; }
-        /* Ensure marker pane is above the ::after overlay */
-        .modal-map .leaflet-marker-pane,
-        .modal-map .leaflet-shadow-pane {
-            z-index: 500 !important;
-        }
         /* GPS-style neon marker */
         .map-pulse-marker {
             position: relative;
@@ -635,6 +630,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div id="modalMap" class="modal-map"></div>
+            <div class="modal-map-overlay"></div>
             <div class="modal-content-layer">
                 <div class="modal-header">
                     <div class="modal-title"><span class="pulse"></span> scanning visitor <span class="modal-subtitle">every website sees this</span></div>
@@ -1808,29 +1804,28 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             modalMapInstance = map;
 
             // Force Leaflet to recalculate size after modal is visible
-            setTimeout(() => map.invalidateSize(), 100);
+            setTimeout(() => {
+                map.invalidateSize();
 
-            if (hasCoords) {
-                // Animated zoom-in after a short delay
-                setTimeout(() => {
-                    map.invalidateSize();
-                    map.flyTo([lat, lon], 12, { duration: 2.5, easeLinearity: 0.25 });
+                if (hasCoords) {
+                    // Place marker immediately
+                    const pulseIcon = L.divIcon({
+                        className: 'map-pulse-marker',
+                        html: '<div class="map-marker-dot"></div><div class="map-marker-ring"></div><div class="map-marker-ring2"></div>',
+                        iconSize: [80, 80],
+                        iconAnchor: [40, 40],
+                    });
+                    L.marker([lat, lon], { icon: pulseIcon }).addTo(map);
 
-                    // Add pulsing marker at the location
+                    // Show map, then fly to location
+                    mapEl.classList.add('visible');
                     setTimeout(() => {
-                        const pulseIcon = L.divIcon({
-                            className: 'map-pulse-marker',
-                            html: '<div class="map-marker-dot"></div><div class="map-marker-ring"></div><div class="map-marker-ring2"></div>',
-                            iconSize: [80, 80],
-                            iconAnchor: [40, 40],
-                        });
-                        L.marker([lat, lon], { icon: pulseIcon }).addTo(map);
-                        mapEl.classList.add('visible');
-                    }, 800);
-                }, 600);
-            } else {
-                mapEl.classList.add('visible');
-            }
+                        map.flyTo([lat, lon], 11, { duration: 3, easeLinearity: 0.2 });
+                    }, 500);
+                } else {
+                    mapEl.classList.add('visible');
+                }
+            }, 200);
         }
 
         // ── Audio fingerprint ──
