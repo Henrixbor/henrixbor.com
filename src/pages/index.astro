@@ -371,17 +371,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         .modal-map.visible {
             opacity: 0.7;
         }
-        /* Dark overlay over map tiles but under the content */
-        .modal-map-overlay {
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            background:
-                linear-gradient(180deg, rgba(8,8,10,0.92) 0%, rgba(8,8,10,0.72) 35%, rgba(8,8,10,0.88) 100%),
-                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 4px);
-            pointer-events: none;
-            border-radius: 12px;
-        }
+        /* No separate overlay — darkening applied via content layer background */
         /* Clean grey tiles — no hue shift */
         .modal-map .leaflet-tile-pane {
             filter: brightness(0.5) saturate(0.2);
@@ -436,6 +426,9 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             flex-direction: column;
             max-height: 88vh;
             overflow: hidden;
+            background:
+                linear-gradient(180deg, rgba(12,12,16,0.93) 0%, rgba(12,12,16,0.75) 35%, rgba(12,12,16,0.9) 100%);
+            border-radius: 12px;
         }
         .modal-overlay.open .modal {
             transform: translateY(0) scale(1);
@@ -630,7 +623,6 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div id="modalMap" class="modal-map"></div>
-            <div class="modal-map-overlay"></div>
             <div class="modal-content-layer">
                 <div class="modal-header">
                     <div class="modal-title"><span class="pulse"></span> scanning visitor <span class="modal-subtitle">every website sees this</span></div>
