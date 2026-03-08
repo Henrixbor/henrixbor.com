@@ -378,14 +378,19 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         }
         /* Hide Leaflet controls & attribution */
         .modal-map .leaflet-control-container { display: none; }
-        /* GPS-style neon marker */
-        .map-pulse-marker {
-            position: relative;
-            width: 80px; height: 80px;
+        /* GPS dot — rendered above content layer */
+        .map-gps-dot {
+            position: absolute;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.6s ease;
         }
+        .map-gps-dot.visible { opacity: 1; }
+        /* GPS-style neon marker (children of .map-gps-dot) */
         .map-marker-dot {
             position: absolute;
-            top: 50%; left: 50%;
+            top: 0; left: 0;
             transform: translate(-50%, -50%);
             width: 12px; height: 12px;
             background: #a78bfa;
@@ -403,14 +408,14 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         }
         .map-marker-ring {
             position: absolute;
-            top: 50%; left: 50%;
+            top: 0; left: 0;
             border: 1.5px solid rgba(167,139,250,0.5);
             border-radius: 50%;
             animation: mapRing 3s ease-out infinite;
         }
         .map-marker-ring2 {
             position: absolute;
-            top: 50%; left: 50%;
+            top: 0; left: 0;
             border: 1px solid rgba(167,139,250,0.3);
             border-radius: 50%;
             animation: mapRing 3s ease-out 1.5s infinite;
@@ -623,6 +628,11 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div id="modalMap" class="modal-map"></div>
+            <div id="mapGpsDot" class="map-gps-dot">
+                <div class="map-marker-dot"></div>
+                <div class="map-marker-ring"></div>
+                <div class="map-marker-ring2"></div>
+            </div>
             <div class="modal-content-layer">
                 <div class="modal-header">
                     <div class="modal-title"><span class="pulse"></span> scanning visitor <span class="modal-subtitle">every website sees this</span></div>
@@ -1097,7 +1107,9 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
         function close() {
             overlay.classList.remove('open');
             const mapEl = document.getElementById('modalMap');
+            const gpsDot = document.getElementById('mapGpsDot');
             if (mapEl) mapEl.classList.remove('visible');
+            if (gpsDot) gpsDot.classList.remove('visible');
             if (modalMapInstance) { modalMapInstance.remove(); modalMapInstance = null; }
         }
         closeBtn.addEventListener('click', close);
@@ -1794,28 +1806,29 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             }).addTo(map);
 
             modalMapInstance = map;
+            const gpsDot = document.getElementById('mapGpsDot');
+
+            function syncDot() {
+                if (!gpsDot || !hasCoords) return;
+                const pt = map.latLngToContainerPoint([lat, lon]);
+                gpsDot.style.left = pt.x + 'px';
+                gpsDot.style.top = pt.y + 'px';
+            }
+
+            map.on('move zoom moveend zoomend', syncDot);
 
             // Force Leaflet to recalculate size after modal is visible
             setTimeout(() => {
                 map.invalidateSize();
+                mapEl.classList.add('visible');
 
                 if (hasCoords) {
-                    // Place marker immediately
-                    const pulseIcon = L.divIcon({
-                        className: 'map-pulse-marker',
-                        html: '<div class="map-marker-dot"></div><div class="map-marker-ring"></div><div class="map-marker-ring2"></div>',
-                        iconSize: [80, 80],
-                        iconAnchor: [40, 40],
-                    });
-                    L.marker([lat, lon], { icon: pulseIcon }).addTo(map);
-
-                    // Show map, then fly to location
-                    mapEl.classList.add('visible');
+                    syncDot();
+                    // Show dot, then fly to location
                     setTimeout(() => {
+                        gpsDot.classList.add('visible');
                         map.flyTo([lat, lon], 11, { duration: 3, easeLinearity: 0.2 });
                     }, 500);
-                } else {
-                    mapEl.classList.add('visible');
                 }
             }, 200);
         }
