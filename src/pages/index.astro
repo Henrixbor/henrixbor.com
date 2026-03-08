@@ -1242,17 +1242,31 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                 body.appendChild(div);
             });
 
-            // Fetch IP data + init map
+            // Fetch IP data + init map (try multiple APIs for reliability)
             let ipLat = null, ipLon = null;
             try {
-                const resp = await fetch('https://ipapi.co/json/');
-                if (resp.ok) {
-                    const data = await resp.json();
-                    info.ip.value = data.ip || 'Unknown';
-                    info.location.value = [data.city, data.region, data.country_name].filter(Boolean).join(', ');
-                    info.isp.value = [data.org, data.asn].filter(Boolean).join(' / ') || 'Unknown';
-                    ipLat = data.latitude;
-                    ipLon = data.longitude;
+                let ipData = null;
+                // Try ipapi.co first
+                try {
+                    const resp = await fetch('https://ipapi.co/json/');
+                    if (resp.ok) ipData = await resp.json();
+                } catch {}
+                // Fallback to ip-api.com
+                if (!ipData) {
+                    try {
+                        const resp2 = await fetch('https://ip-api.com/json/?fields=query,city,regionName,country,lat,lon,isp,as');
+                        if (resp2.ok) {
+                            const d = await resp2.json();
+                            ipData = { ip: d.query, city: d.city, region: d.regionName, country_name: d.country, latitude: d.lat, longitude: d.lon, org: d.isp, asn: d.as };
+                        }
+                    } catch {}
+                }
+                if (ipData) {
+                    info.ip.value = ipData.ip || 'Unknown';
+                    info.location.value = [ipData.city, ipData.region, ipData.country_name].filter(Boolean).join(', ');
+                    info.isp.value = [ipData.org, ipData.asn].filter(Boolean).join(' / ') || 'Unknown';
+                    ipLat = ipData.latitude;
+                    ipLon = ipData.longitude;
                 }
             } catch {
                 info.ip.value = 'Blocked';
@@ -1261,6 +1275,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             }
 
             // Initialize map behind modal
+            console.log('[scan] map init, coords:', ipLat, ipLon);
             initModalMap(ipLat, ipLon);
 
             // Battery
@@ -1794,14 +1809,21 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
             if (mapAnimFrame) { cancelAnimationFrame(mapAnimFrame); mapAnimFrame = null; }
 
             const hasCoords = lat != null && lon != null && isFinite(lat) && isFinite(lon);
+            console.log('[map] hasCoords:', hasCoords, 'lat:', lat, 'lon:', lon);
             const startLat = hasCoords ? lat : 30;
             const startLon = hasCoords ? lon : 0;
 
-            // Reset map container (Leaflet needs a clean container)
+            // Reset map container
             mapEl.innerHTML = '';
-            mapEl.style.removeProperty('position');
             mapEl.classList.remove('visible');
             if (gpsDot) gpsDot.classList.remove('visible');
+            // Ensure explicit dimensions (Leaflet needs non-zero size)
+            const modal = mapEl.closest('.modal');
+            if (modal) {
+                const rect = modal.getBoundingClientRect();
+                mapEl.style.width = rect.width + 'px';
+                mapEl.style.height = rect.height + 'px';
+            }
 
             const map = L.map(mapEl, {
                 zoomControl: false,
@@ -1842,6 +1864,7 @@ const tagline = "Builder · Adventurer · AI Enthusiast";
                     // Fly to location after brief pause
                     setTimeout(() => {
                         map.invalidateSize();
+                        console.log('[map] flying to', lat, lon, 'container size:', mapEl.offsetWidth, 'x', mapEl.offsetHeight);
                         map.flyTo([lat, lon], 11, { duration: 3, easeLinearity: 0.2 });
                         // Stop rAF loop after fly animation ends
                         setTimeout(() => {
